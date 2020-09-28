@@ -29,6 +29,7 @@ import org.graalvm.nativeimage.Platforms;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.WordFactory;
 
+import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.log.Log;
 
 /**
@@ -113,6 +114,10 @@ final class Accounting {
     void beforeCollection() {
         Log trace = Log.noopLog().string("[GCImpl.Accounting.beforeCollection:").newline();
         /* Gather some space statistics. */
+        if(SubstrateOptions.PersonalGC.getValue()){
+            Log personalLog = Log.log();
+            personalLog.string("Before collection!").newline();
+        }
         HeapImpl heap = HeapImpl.getHeapImpl();
         YoungGeneration youngGen = heap.getYoungGeneration();
         youngChunkBytesBefore = youngGen.getChunkUsedBytes();
@@ -157,6 +162,11 @@ final class Accounting {
                         .string("  oldChunkBytesBefore: ").unsigned(oldChunkBytesBefore)
                         .string("  promotedChunkBytes: ").unsigned(lastCollectionPromotedChunkBytes);
         trace.string("]").newline();
+        /* Gather some space statistics. */
+        if(SubstrateOptions.PersonalGC.getValue()){
+            Log personalLog = Log.log();
+            personalLog.string("After collection!").newline();
+        }
     }
 
     private void afterCompleteCollection(Timer collectionTimer) {

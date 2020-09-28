@@ -37,7 +37,6 @@ import org.graalvm.compiler.nodes.ValueNode;
 import org.graalvm.compiler.nodes.spi.VirtualizableAllocation;
 import org.graalvm.compiler.nodes.spi.VirtualizerTool;
 import org.graalvm.compiler.nodes.virtual.VirtualInstanceNode;
-
 import jdk.vm.ci.meta.ResolvedJavaField;
 import jdk.vm.ci.meta.ResolvedJavaType;
 
@@ -52,14 +51,17 @@ public class NewInstanceNode extends AbstractNewObjectNode implements Virtualiza
 
     public NewInstanceNode(ResolvedJavaType type, boolean fillContents) {
         this(TYPE, type, fillContents, null);
+        //System.out.printf("Type: %s, fillContents: %b\n", type, fillContents);
     }
 
     public NewInstanceNode(ResolvedJavaType type, boolean fillContents, FrameState stateBefore) {
         this(TYPE, type, fillContents, stateBefore);
+        //System.out.printf("Type: %s, fillContents: %b, FrameState: %s\n", type, fillContents, stateBefore);
     }
 
     protected NewInstanceNode(NodeClass<? extends NewInstanceNode> c, ResolvedJavaType type, boolean fillContents, FrameState stateBefore) {
         super(c, StampFactory.objectNonNull(TypeReference.createExactTrusted(type)), fillContents, stateBefore);
+        //System.out.printf("NodeClass! Type: %s, fillContents: %b, FrameState: %s\n",type, fillContents, stateBefore);
         assert !type.isArray() && !type.isInterface() && !type.isPrimitive() && !type.isAbstract() : type;
         this.instanceClass = type;
     }

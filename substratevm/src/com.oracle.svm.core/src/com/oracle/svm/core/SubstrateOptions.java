@@ -166,6 +166,9 @@ public class SubstrateOptions {
     @Option(help = "Print summary GC information after each collection", type = OptionType.Expert)//
     public static final RuntimeOptionKey<Boolean> PrintGC = new RuntimeOptionKey<>(false);
 
+    @Option(help = "Personal GC Logger", type = OptionType.Expert)//
+    public static final RuntimeOptionKey<Boolean> PersonalGC = new RuntimeOptionKey<>(false);
+
     @Option(help = "Print more information about the heap before and after each collection", type = OptionType.Expert)//
     public static final RuntimeOptionKey<Boolean> VerboseGC = new RuntimeOptionKey<>(false);
 
