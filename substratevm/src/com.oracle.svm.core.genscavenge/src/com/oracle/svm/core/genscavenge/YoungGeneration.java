@@ -87,6 +87,15 @@ final class YoungGeneration extends Generation {
         return true;
     }
 
+    public Log customReport(Log log, boolean traceHeapChunks) {
+        log.string("[Young generation: ").indent(true);
+        log.string("[Eden: ").indent(true);
+        getEden().report(log, traceHeapChunks);
+        log.redent(false).string("]").newline();
+        log.redent(false).string("]").redent(false).string("]");
+        return log;
+    }
+
     @Override
     public Log report(Log log, boolean traceHeapChunks) {
         log.string("[Young generation: ").indent(true);
