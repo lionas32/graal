@@ -73,6 +73,13 @@ final class Space {
     private UnalignedHeapChunk.UnalignedHeader firstUnalignedHeapChunk;
     private UnalignedHeapChunk.UnalignedHeader lastUnalignedHeapChunk;
 
+
+    public static long[] indexToValue = new long[1_000_000];
+    public static long[] indexToLifetime = new long[1_000_000];
+    public static int start = 0;
+    //public static HashMap<Long, Integer> lifetimeTable = new HashMap<>();
+
+
     /**
      * Space creation is HOSTED_ONLY because all Spaces must be constructed during native image
      * generation so they end up in the native image heap because they need to be accessed during
@@ -486,18 +493,41 @@ final class Space {
         assert getLastUnalignedHeapChunk().isNull() : "Failed to remove last UnalignedHeapChunk";
     }
 
+    public static int getIndex(long rawValue){
+        for(int i = 0; i < indexToValue.length; i++){
+            if(indexToValue[i] == rawValue){
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /** Promote an aligned Object to this Space. */
     Object promoteAlignedObject(Object original, Space originalSpace) {
         assert ObjectHeaderImpl.isAlignedObject(original);
         assert this != originalSpace && originalSpace.isFromSpace();
 
+        int index = getIndex(Word.objectToUntrackedPointer(original).rawValue());
+        if(index != -1){
+            indexToLifetime[index] += 1;
+        } else {
+            indexToValue[start] = Word.objectToUntrackedPointer(original).rawValue();
+            indexToLifetime[start] = 0;
+            start++;
+            index = start - 1;
+        }
+
         if (HeapOptions.TraceObjectPromotion.getValue()) {
-            Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
-                            .string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
+            Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime: ")
+                    .number(indexToLifetime[index], 10, false)
+                    .string("  rawValue: ").number(Word.objectToTrackedPointer(original).rawValue(), 16, true)
+                    .string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
+                    .string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
         }
 
         Object copy = copyAlignedObject(original);
         ObjectHeaderImpl.installForwardingPointer(original, copy);
+        indexToValue[index] = Word.objectToUntrackedPointer(copy).rawValue(); // We use the latest pointer
         return copy;
     }
 

@@ -24,6 +24,7 @@
  */
 package com.oracle.svm.core.genscavenge;
 
+import org.graalvm.compiler.core.common.type.ArithmeticOpTable;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
 import org.graalvm.word.UnsignedWord;
@@ -154,10 +155,8 @@ final class Accounting {
 
         }
         if (completeCollection) {
-            personalLog.string("COMPLETE COLLECTION.").newline();
             afterCompleteCollection(collectionTimer);
         } else {
-            personalLog.string("INCREMENTAL COLLECTION.").newline();
             afterIncrementalCollection(collectionTimer);
         }
     }

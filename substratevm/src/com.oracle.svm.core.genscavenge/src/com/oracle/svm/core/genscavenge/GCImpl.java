@@ -839,7 +839,7 @@ public final class GCImpl implements GC {
     }
 
     private static void promotePinnedObject(PinnedObjectImpl pinned) {
-        Log trace = Log.noopLog().string("[GCImpl.promotePinnedObject").string("  pinned: ").object(pinned);
+        Log trace = Log.log().string("[GCImpl.promotePinnedObject").string("  pinned: ").object(pinned);
         HeapImpl heap = HeapImpl.getHeapImpl();
         OldGeneration oldGen = heap.getOldGeneration();
         /* Find the chunk the object is in, and if necessary, move it to To space. */
