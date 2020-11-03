@@ -29,6 +29,7 @@ import java.util.SplittableRandom;
 import com.oracle.svm.core.config.ConfigurationValues;
 import com.oracle.svm.core.config.ObjectLayout;
 import com.oracle.svm.core.hub.DynamicHub;
+import com.oracle.svm.core.log.Log;
 import com.oracle.svm.core.snippets.KnownIntrinsics;
 import org.graalvm.compiler.nodes.NamedLocationIdentity;
 import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
@@ -62,9 +63,13 @@ public final class IdentityHashCodeSupport {
 
         // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();
-        if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, 0, newHashCode)) {
+        Log.log().string(" hashCode before insert: ")
+                .number(GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset), 16, false);
+        if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, 0, newHashCode | 0xf0000000)) {
             newHashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IDENTITY_HASHCODE_LOCATION);
         }
+        Log.log().string(" hashCode after insert: ")
+                .number(GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset), 16, false).newline();
         VMError.guarantee(newHashCode != 0, "Missing identity hash code");
         return newHashCode;
     }
@@ -78,6 +83,7 @@ public final class IdentityHashCodeSupport {
         } else {
             DynamicHub hub = KnownIntrinsics.readHub(obj);
             hashCodeOffset = hub.getHashCodeOffset();
+            Log.log().string(" name: ").string(hub.getName()).string(" hashCodeOffset ").number(hashCodeOffset, 16, false).newline();
         }
 
         if (probability(LUDICROUSLY_SLOW_PATH_PROBABILITY, hashCodeOffset == 0)) {

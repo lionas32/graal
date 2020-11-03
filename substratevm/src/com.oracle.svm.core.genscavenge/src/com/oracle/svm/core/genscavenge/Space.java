@@ -516,10 +516,10 @@ final class Space {
             start++;
             index = start - 1;
         }
-
         if (HeapOptions.TraceObjectPromotion.getValue()) {
             Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime: ")
                     .number(indexToLifetime[index], 10, false)
+                    .string("  objectHeader: ").hex(ObjectHeaderImpl.readHeaderFromObjectCarefully(original))
                     .string("  rawValue: ").number(Word.objectToTrackedPointer(original).rawValue(), 16, true)
                     .string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
                     .string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();

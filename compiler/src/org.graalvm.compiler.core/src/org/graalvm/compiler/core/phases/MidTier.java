@@ -46,6 +46,7 @@ import org.graalvm.compiler.phases.common.FloatingReadPhase;
 import org.graalvm.compiler.phases.common.FrameStateAssignmentPhase;
 import org.graalvm.compiler.phases.common.GuardLoweringPhase;
 import org.graalvm.compiler.phases.common.IncrementalCanonicalizerPhase;
+import org.graalvm.compiler.phases.common.InsertAllocationSitePhase;
 import org.graalvm.compiler.phases.common.InsertGuardFencesPhase;
 import org.graalvm.compiler.phases.common.IterativeConditionalEliminationPhase;
 import org.graalvm.compiler.phases.common.LockEliminationPhase;
@@ -72,6 +73,8 @@ public class MidTier extends BaseTier<MidTierContext> {
         if (ConditionalElimination.getValue(options)) {
             appendPhase(new IterativeConditionalEliminationPhase(canonicalizer, true));
         }
+
+        appendPhase(new InsertAllocationSitePhase());
 
         appendPhase(new LoopSafepointEliminationPhase());
 
