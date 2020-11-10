@@ -25,24 +25,54 @@
 package org.graalvm.compiler.phases.common;
 
 import jdk.vm.ci.meta.ResolvedJavaMethod;
+import org.graalvm.compiler.nodeinfo.Verbosity;
+import org.graalvm.compiler.nodes.ConstantNode;
+import org.graalvm.compiler.nodes.NamedLocationIdentity;
 import org.graalvm.compiler.nodes.StructuredGraph;
 import org.graalvm.compiler.nodes.java.NewInstanceNode;
 import org.graalvm.compiler.nodes.memory.OnHeapMemoryAccess;
 import org.graalvm.compiler.nodes.memory.WriteNode;
+import org.graalvm.compiler.nodes.memory.address.AddressNode;
+import org.graalvm.compiler.nodes.memory.address.OffsetAddressNode;
 import org.graalvm.compiler.phases.Phase;
+import org.graalvm.word.LocationIdentity;
 
-import java.util.List;
 
 public class InsertAllocationSitePhase extends Phase {
-
+    public static final LocationIdentity IDENTITY_HASHCODE_LOCATION = NamedLocationIdentity.mutable("identityHashCode");
+    private final int methodMask = 0xffff0000;
+    private final int allocationCounterMask = 0x0000ffff;
+    //Used as the second unique identifier;
+    private int allocationCounter = 0;
+    private final int hashCodeOffset = 0x10;
     @Override
     protected void run(StructuredGraph graph) {
-        for (NewInstanceNode n : graph.getNodes().filter(NewInstanceNode.class)){
-            //WriteNode writeNode =  new WriteNode(null, null, n, OnHeapMemoryAccess.BarrierType.ARRAY);
-            if(n.instanceClass().toString().contains("SimpleObject")) {
-                List<ResolvedJavaMethod> methods = n.graph().getMethods();
-                System.out.println("methods.get(0): " + methods.get(0));
+        for (NewInstanceNode n : graph.getNodes().filter(NewInstanceNode.class)) {
+            if (n.instanceClass().toString().contains("SimpleObject")) {
+                System.out.println("n.toString(Verbosity.All): " + n.toString(Verbosity.All));
+                int allocationSiteForNode =  getAllocationSiteForNode(n);
+                //hashCodeOffset constant value
+                ConstantNode hashCodeOffsetNode = ConstantNode.forInt(hashCodeOffset);
+                graph.addWithoutUnique(hashCodeOffsetNode);
+                //the whole address for the hashCodeOffset
+                AddressNode address = new OffsetAddressNode(n, hashCodeOffsetNode);
+                graph.unique(address);
+                //the node we use to writing to memory (or overwriting the object hashcode)
+                ConstantNode allocationSiteValueNode =  ConstantNode.forInt(allocationSiteForNode);
+                graph.addWithoutUnique(allocationSiteValueNode);
+                WriteNode writeNode = new WriteNode(address,
+                        IDENTITY_HASHCODE_LOCATION, allocationSiteValueNode, OnHeapMemoryAccess.BarrierType.UNKNOWN);
+                graph.add(writeNode);
+                graph.addAfterFixed(n, writeNode);
             }
         }
+        allocationCounter++;
     }
+
+    private int getAllocationSiteForNode(NewInstanceNode node){
+        ResolvedJavaMethod method = node.graph().getMethods().get(0);
+        int allocationSite = (method.format("%H.%n").hashCode() & methodMask) | (allocationCounter & allocationCounterMask);
+        return allocationSite;
+    }
+
 }

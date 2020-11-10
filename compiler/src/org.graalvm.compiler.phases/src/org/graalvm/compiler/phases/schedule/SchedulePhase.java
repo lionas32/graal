@@ -55,6 +55,7 @@ import org.graalvm.compiler.graph.NodeStack;
 import org.graalvm.compiler.nodes.AbstractBeginNode;
 import org.graalvm.compiler.nodes.AbstractEndNode;
 import org.graalvm.compiler.nodes.AbstractMergeNode;
+import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.ControlSinkNode;
 import org.graalvm.compiler.nodes.ControlSplitNode;
 import org.graalvm.compiler.nodes.DeoptimizeNode;
@@ -917,6 +918,10 @@ public final class SchedulePhase extends Phase {
 
         private static void processNodes(NodeBitMap visited, NodeMap<MicroBlock> entries, NodeStack stack, MicroBlock startBlock, Iterable<? extends Node> nodes) {
             for (Node node : nodes) {
+                if(node.id() == -1){
+                    System.out.println(node.getNodeClass() + " what node class does crash");
+                    System.out.println(((ConstantNode) node).getValue() + " value of crashed node");
+                }
                 if (entries.get(node) == null) {
                     processStack(node, startBlock, entries, visited, stack);
                 }
@@ -1157,6 +1162,10 @@ public final class SchedulePhase extends Phase {
 
             MicroBlock earliestBlock = startBlock;
             for (Node input : current.inputs()) {
+                if(input.id() == -1){
+                    System.out.println("current: " + current.getNodeClass().toString() + " input: " + input.getNodeClass().toString());
+                    System.out.println("value: " + ((ConstantNode) input).getValue().toValueString());
+                }
                 MicroBlock inputBlock = nodeToBlock.get(input);
                 if (inputBlock == null) {
                     earliestBlock = null;

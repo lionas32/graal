@@ -65,7 +65,7 @@ public final class IdentityHashCodeSupport {
         int newHashCode = generateHashCode();
         Log.log().string(" hashCode before insert: ")
                 .number(GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset), 16, false);
-        if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, 0, newHashCode | 0xf0000000)) {
+        if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, 0, newHashCode)) {
             newHashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IDENTITY_HASHCODE_LOCATION);
         }
         Log.log().string(" hashCode after insert: ")
@@ -83,7 +83,6 @@ public final class IdentityHashCodeSupport {
         } else {
             DynamicHub hub = KnownIntrinsics.readHub(obj);
             hashCodeOffset = hub.getHashCodeOffset();
-            Log.log().string(" name: ").string(hub.getName()).string(" hashCodeOffset ").number(hashCodeOffset, 16, false).newline();
         }
 
         if (probability(LUDICROUSLY_SLOW_PATH_PROBABILITY, hashCodeOffset == 0)) {
