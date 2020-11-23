@@ -28,6 +28,7 @@ import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.FREQUENT
 import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.LUDICROUSLY_SLOW_PATH_PROBABILITY;
 import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.probability;
 
+import com.oracle.svm.core.graal.snippets.OffHeapTable;
 import com.oracle.svm.core.jdk.IdentityHashCodeSupport;
 import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
 import org.graalvm.compiler.word.Word;
@@ -47,8 +48,6 @@ import com.oracle.svm.core.log.Log;
 import com.oracle.svm.core.thread.VMOperation;
 import com.oracle.svm.core.thread.VMThreads;
 import com.oracle.svm.core.util.VMError;
-
-import java.util.HashMap;
 
 /**
  * A Space is a collection of HeapChunks.
@@ -77,18 +76,11 @@ final class Space {
     private UnalignedHeapChunk.UnalignedHeader firstUnalignedHeapChunk;
     private UnalignedHeapChunk.UnalignedHeader lastUnalignedHeapChunk;
 
-
     // TODO: Rewrite this to OLD
     public static long[] indexToValue = new long[1_000_000];
     public static long[] indexToLifetime = new long[1_000_000];
     public static int start = 0;
 
-    // For the OLD table
-    //public static int[] indexToAllocationSite = new int[65536];
-    //public static int[][] allocationSiteToLifetimes = new int[65536][16];
-
-
-    public static HashMap<Integer, int[]> allocationSiteToLifetimes = new HashMap<>();
     /**
      * Space creation is HOSTED_ONLY because all Spaces must be constructed during native image
      * generation so they end up in the native image heap because they need to be accessed during
@@ -518,8 +510,7 @@ final class Space {
 
         //Using OLD
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(original);
-        int allocationContext = GraalUnsafeAccess.getUnsafe().getInt(original, (long)hashCodeOffset);
-
+        int allocationContext = GraalUnsafeAccess.getUnsafe().getInt(original, (long) hashCodeOffset);
         //Using address
         int index = getIndex(Word.objectToUntrackedPointer(original).rawValue());
         if(index != -1){

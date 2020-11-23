@@ -376,6 +376,8 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
 
     public static class SubstrateAllocationProfilingData extends AllocationProfilingData {
         final AllocationCounter allocationSiteCounter;
+        // Table for keeping track of allocations
+        final static OffHeapTable oldTable = new OffHeapTable(65536);
 
         public SubstrateAllocationProfilingData(AllocationSnippetCounters snippetCounters, AllocationCounter allocationSiteCounter) {
             super(snippetCounters);
