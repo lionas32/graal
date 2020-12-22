@@ -48,6 +48,8 @@ public class AllocationCounter {
     /** Size of allocations in bytes. */
     private long size;
 
+    private int personalAllocationSite;
+
     @Platforms(Platform.HOSTED_ONLY.class)//
     public static final Field COUNT_FIELD;
     @Platforms(Platform.HOSTED_ONLY.class)//
@@ -62,13 +64,23 @@ public class AllocationCounter {
         }
     }
 
-    protected AllocationCounter(String name, AllocationCounter next) {
+    protected AllocationCounter(String name, AllocationCounter next, int personalAllocationSite) {
+        this.name = name;
+        this.next = next;
+        this.personalAllocationSite = personalAllocationSite;
+    }
+
+    protected AllocationCounter(String name, AllocationCounter next){
         this.name = name;
         this.next = next;
     }
 
     public final void incrementCount() {
         this.count++;
+    }
+
+    public final int getPersonalAllocationSite(){
+        return personalAllocationSite;
     }
 
     public final void incrementSize(long inc) {

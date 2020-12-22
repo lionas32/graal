@@ -105,6 +105,14 @@ public final class AllocationSite {
         return counter;
     }
 
+    public AllocationCounter createCounter2(String counterName, int personalAllocationSite) {
+        AllocationCounter counter;
+        do {
+            counter = new AllocationCounter(counterName, firstCounter.get(), personalAllocationSite);
+        } while (!firstCounter.compareAndSet(counter.getNext(), counter));
+        return counter;
+    }
+
     @Override
     public String toString() {
         return siteName + " : " + className;

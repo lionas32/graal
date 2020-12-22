@@ -1,13 +1,12 @@
 package com.oracle.svm.core.graal.phases;
 
 import com.oracle.svm.core.hub.DynamicHub;
-import com.oracle.svm.core.hub.LayoutEncoding;
 import com.oracle.svm.core.meta.SharedType;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
-import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodeinfo.Verbosity;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
+import org.graalvm.compiler.nodes.ValueNode;
 import org.graalvm.compiler.nodes.java.NewInstanceNode;
 import org.graalvm.compiler.nodes.memory.OnHeapMemoryAccess;
 import org.graalvm.compiler.nodes.memory.WriteNode;
@@ -18,7 +17,7 @@ import org.graalvm.compiler.phases.Phase;
 import static com.oracle.svm.core.jdk.IdentityHashCodeSupport.IDENTITY_HASHCODE_LOCATION;
 
 public class InsertAllocationSitePhase extends Phase {
-    private final int methodMask = 0xffff0000;
+    private final int methodMask = 0x7fff0000;
     private final int allocationCounterMask = 0x0000ffff;
     // Used as the second unique identifier;
     private int allocationCounter = 0;
@@ -32,13 +31,14 @@ public class InsertAllocationSitePhase extends Phase {
             SharedType type = (SharedType) n.instanceClass();
             DynamicHub hub = type.getHub();
             int hubHashCode = hub.getHashCodeOffset();
+            System.out.println("n.getHashCodeOffset: " + hubHashCode);
             //hashCodeOffset constant value
             ConstantNode hashCodeOffsetNode = ConstantNode.forInt(hubHashCode);
             graph.addWithoutUnique(hashCodeOffsetNode);
             //the whole address for the hashCodeOffset
             AddressNode address = new OffsetAddressNode(n, hashCodeOffsetNode);
             graph.unique(address);
-            int allocationSiteForNode = getAllocationSiteForNode(n);
+            int allocationSiteForNode = createAllocationSiteForNode(n);
             ConstantNode allocationSiteValueNode = ConstantNode.forInt(allocationSiteForNode);
             //the node we use to writing to memory (or overwriting the object hashcode)
             WriteNode writeNode = new WriteNode(address,
@@ -46,11 +46,12 @@ public class InsertAllocationSitePhase extends Phase {
             graph.addWithoutUnique(allocationSiteValueNode);
             graph.addAfterFixed(n, writeNode);
             graph.add(writeNode);
+            n.setPersonalAllocationSite(allocationSiteForNode);
         }
         allocationCounter++;
     }
 
-    private int getAllocationSiteForNode(NewInstanceNode node) {
+    private int createAllocationSiteForNode(ValueNode node) {
         ResolvedJavaMethod method = node.graph().getMethods().get(0);
         int allocationSite = (method.format("%H.%n").hashCode() & methodMask) | (allocationCounter & allocationCounterMask);
         return allocationSite;

@@ -28,7 +28,7 @@ import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.FREQUENT
 import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.LUDICROUSLY_SLOW_PATH_PROBABILITY;
 import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.probability;
 
-import com.oracle.svm.core.graal.snippets.OffHeapTable;
+import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets.SubstrateAllocationProfilingData;
 import com.oracle.svm.core.jdk.IdentityHashCodeSupport;
 import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
 import org.graalvm.compiler.word.Word;
@@ -521,14 +521,27 @@ final class Space {
             start++;
             index = start - 1;
         }
+        if(indexToLifetime[index] != 0 && indexToLifetime[index] != 15){
+            SubstrateAllocationProfilingData.incrementAllocation(allocationContext, (int) indexToLifetime[index]);
+            SubstrateAllocationProfilingData.decrementAllocation(allocationContext, (int) indexToLifetime[index] - 1);
+        }
+
         if (HeapOptions.TraceObjectPromotion.getValue() && original.getClass().getName().contains("SimpleObject")) {
+            UnsignedWord header = ObjectHeaderImpl.readHeaderFromObject(original);
+            long[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationContext);
             Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime: ")
                     .number(indexToLifetime[index], 10, false)
                     .string("  epoch: ").number(HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().rawValue(), 10, true)
+                    .string("  fieldCounters[allocationContext]: ").number(SubstrateAllocationProfilingData.getAllocationsForSite(allocationContext), 10, true)
                     .string("  allocationContext: ").hex(allocationContext)
-                    .string("  rawValue: ").number(Word.objectToTrackedPointer(original).rawValue(), 16, true)
+                    .string("  allocations: [").number(allocations[0], 10, false).string(", ")
+                                .number(allocations[1], 10, false).string(", ")
+                                .number(allocations[2], 10, false).string(", ")
+                                .number(allocations[3], 10, false).string(", ...]")
+                    .hex(header)
                     .string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
-                    .string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
+                    .string("  age: ").hex(age).string("]").newline();
+                    //.string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
         }
 
         Object copy = copyAlignedObject(original); //Don't delete

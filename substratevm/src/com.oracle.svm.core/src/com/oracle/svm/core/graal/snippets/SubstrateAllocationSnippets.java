@@ -311,7 +311,10 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     protected final void profileAllocation(AllocationProfilingData profilingData, UnsignedWord size) {
         if (AllocationSite.Options.AllocationProfiling.getValue()) {
             SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
+            SubstrateAllocationProfilingData.objectAllocated();
             AllocationCounter allocationSiteCounter = svmProfilingData.allocationSiteCounter;
+            SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite());
+            SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite(), 0);
             allocationSiteCounter.incrementCount();
             allocationSiteCounter.incrementSize(size.rawValue());
         }
@@ -376,12 +379,40 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
 
     public static class SubstrateAllocationProfilingData extends AllocationProfilingData {
         final AllocationCounter allocationSiteCounter;
-        // Table for keeping track of allocations
-        final static OffHeapTable oldTable = new OffHeapTable(65536);
+        public static long fieldCounter;
+        //We will now try to track the allocation site of some objects
+        public static long[] fieldCounters = new long[65536];
+        public static long[][] lifeTimeCounters = new long[65536][16];
+
 
         public SubstrateAllocationProfilingData(AllocationSnippetCounters snippetCounters, AllocationCounter allocationSiteCounter) {
             super(snippetCounters);
             this.allocationSiteCounter = allocationSiteCounter;
+        }
+
+        public static final void objectAllocated(){
+            fieldCounter++;
+        }
+
+        public static final long getAllocationsForSite(int allocationSite){
+            return fieldCounters[allocationSite % fieldCounters.length];
+        }
+
+        public static final void incrementAllocation(int allocationSite){
+            fieldCounters[allocationSite % fieldCounters.length] += 1;
+        }
+
+        // Lifetime table
+        public static final void incrementAllocation(int allocationSite, int lifetime){
+            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] += 1;
+        }
+
+        public static final void decrementAllocation(int allocationSite, int lifetime){
+            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] -= 1;
+        }
+
+        public static final long[] getLifetimesForAllocationSite(int allocationSite){
+            return lifeTimeCounters[allocationSite % lifeTimeCounters.length];
         }
     }
 
@@ -417,16 +448,16 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             lowerings.put(NewMultiArrayNode.class, new NewMultiArrayLowering());
         }
 
-        private AllocationProfilingData getProfilingData(ValueNode node, ResolvedJavaType type) {
+        private AllocationProfilingData getProfilingData(ValueNode node, ResolvedJavaType type, int personalAllocationSite) {
             if (AllocationSite.Options.AllocationProfiling.getValue()) {
                 // Create one object per snippet instantiation - this kills the snippet caching as
                 // we need to add the object as a constant to the snippet.
-                return new SubstrateAllocationProfilingData(snippetCounters, createAllocationSiteCounter(node, type));
+                return new SubstrateAllocationProfilingData(snippetCounters, createAllocationSiteCounter(node, type, personalAllocationSite));
             }
             return profilingData;
         }
 
-        private static AllocationCounter createAllocationSiteCounter(ValueNode node, ResolvedJavaType type) {
+        private static AllocationCounter createAllocationSiteCounter(ValueNode node, ResolvedJavaType type, int personalAllocationSite) {
             String siteName = "[others]";
             if (node.getNodeSourcePosition() != null) {
                 siteName = node.getNodeSourcePosition().getMethod().asStackTraceElement(node.getNodeSourcePosition().getBCI()).toString();
@@ -442,7 +473,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             if (counterName == null) {
                 counterName = node.graph().method().format("%H.%n(%p)");
             }
-            return allocationSite.createCounter(counterName);
+            return allocationSite.createCounter2(counterName, personalAllocationSite);
         }
 
         private class NewInstanceLowering implements NodeLoweringProvider<NewInstanceNode> {
@@ -455,6 +486,11 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
 
                 SharedType type = (SharedType) node.instanceClass();
                 DynamicHub hub = type.getHub();
+                System.out.println("NEWINSTANCENODE_LOWER");
+                System.out.println("n.instanceClass().toString(): " + node.instanceClass().toString());
+                System.out.println("n.hashCodeOffset?: " + hub.getHashCodeOffset());
+                System.out.println("n.getPersonalAllocationSite?: " + Integer.toHexString(node.getPersonalAllocationSite()));
+                System.out.println("n.getPersonalAllocationSite? (int): " + node.getPersonalAllocationSite());
 
                 ConstantNode hubConstant = ConstantNode.forConstant(SubstrateObjectConstant.forObject(hub), providers.getMetaAccess(), graph);
                 long size = LayoutEncoding.getInstanceSize(hub.getLayoutEncoding()).rawValue();
@@ -464,7 +500,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                 args.addConst("size", size);
                 args.addConst("fillContents", node.fillContents());
                 args.addConst("emitMemoryBarrier", node.emitMemoryBarrier());
-                args.addConst("profilingData", getProfilingData(node, type));
+                args.addConst("profilingData", getProfilingData(node, type, node.getPersonalAllocationSite()));
 
                 template(node, args).instantiate(providers.getMetaAccess(), node, DEFAULT_REPLACER, args);
             }
@@ -495,7 +531,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                 args.addConst("emitMemoryBarrier", node.emitMemoryBarrier());
                 args.addConst("maybeUnroll", length.isConstant());
                 args.addConst("supportsBulkZeroing", tool.getLowerer().supportsBulkZeroing());
-                args.addConst("profilingData", getProfilingData(node, type));
+                args.addConst("profilingData", getProfilingData(node, type, 0));
 
                 template(node, args).instantiate(providers.getMetaAccess(), node, SnippetTemplate.DEFAULT_REPLACER, args);
             }
@@ -539,7 +575,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                 args.add("hub", node.getInstanceType());
                 args.addConst("fillContents", node.fillContents());
                 args.addConst("emitMemoryBarrier", node.emitMemoryBarrier());
-                args.addConst("profilingData", getProfilingData(node, null));
+                args.addConst("profilingData", getProfilingData(node, null, 0));
 
                 template(node, args).instantiate(providers.getMetaAccess(), node, SnippetTemplate.DEFAULT_REPLACER, args);
             }
@@ -559,7 +595,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                 args.addConst("fillContents", node.fillContents());
                 args.addConst("emitMemoryBarrier", node.emitMemoryBarrier());
                 args.addConst("supportsBulkZeroing", tool.getLowerer().supportsBulkZeroing());
-                args.addConst("profilingData", getProfilingData(node, null));
+                args.addConst("profilingData", getProfilingData(node, null, 0));
 
                 template(node, args).instantiate(providers.getMetaAccess(), node, SnippetTemplate.DEFAULT_REPLACER, args);
             }
