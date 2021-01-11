@@ -76,11 +76,6 @@ final class Space {
     private UnalignedHeapChunk.UnalignedHeader firstUnalignedHeapChunk;
     private UnalignedHeapChunk.UnalignedHeader lastUnalignedHeapChunk;
 
-    // TODO: Rewrite this to OLD
-    public static long[] indexToValue = new long[1_000_000];
-    public static long[] indexToLifetime = new long[1_000_000];
-    public static int start = 0;
-
     /**
      * Space creation is HOSTED_ONLY because all Spaces must be constructed during native image
      * generation so they end up in the native image heap because they need to be accessed during
@@ -480,7 +475,7 @@ final class Space {
 
     private void releaseAlignedHeapChunks() {
         for (AlignedHeapChunk.AlignedHeader chunk = popAlignedHeapChunk(); chunk.isNonNull(); chunk = popAlignedHeapChunk()) {
-            HeapImpl.getChunkProvider().consumeAlignedChunk(chunk);
+            HeapImpl.getChunkProvider().consumeAlignedChunk(chunk, true);
         }
         assert getFirstAlignedHeapChunk().isNull() : "Failed to remove first AlignedHeapChunk.";
         assert getLastAlignedHeapChunk().isNull() : "Failed to remove last AlignedHeapChunk.";
@@ -494,13 +489,23 @@ final class Space {
         assert getLastUnalignedHeapChunk().isNull() : "Failed to remove last UnalignedHeapChunk";
     }
 
-    public static int getIndex(long rawValue){
-        for(int i = 0; i < indexToValue.length; i++){
-            if(indexToValue[i] == rawValue){
-                return i;
-            }
+    void incrementAgeBits(Object obj){
+        int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
+        int allocationContextWithAge = GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset);
+        int ageBits = (allocationContextWithAge >> 29) + 1;
+        // Maximum age
+        if(ageBits == 0b111){
+            return;
         }
-        return -1;
+        int newAllocationContextWithAge = (ageBits << 29) | (allocationContextWithAge & 0x1fffffff);
+        if(!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContextWithAge, newAllocationContextWithAge)){
+            Log.log().string("incrementAgeBits: Wrong allocation context").newline();
+        }
+    }
+
+    int getAgeBits(Object obj){
+        int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
+        return GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset) >>> 29;
     }
 
     /** Promote an aligned Object to this Space. */
@@ -511,42 +516,37 @@ final class Space {
         //Using OLD
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(original);
         int allocationContext = GraalUnsafeAccess.getUnsafe().getInt(original, (long) hashCodeOffset);
-        //Using address
-        int index = getIndex(Word.objectToUntrackedPointer(original).rawValue());
-        if(index != -1){
-            indexToLifetime[index] += 1;
-        } else {
-            indexToValue[start] = Word.objectToUntrackedPointer(original).rawValue();
-            indexToLifetime[start] = 0;
-            start++;
-            index = start - 1;
-        }
-        if(indexToLifetime[index] != 0 && indexToLifetime[index] != 15){
-            SubstrateAllocationProfilingData.incrementAllocation(allocationContext, (int) indexToLifetime[index]);
-            SubstrateAllocationProfilingData.decrementAllocation(allocationContext, (int) indexToLifetime[index] - 1);
+
+        //TODO: Handle the case when its 0b111, then we skip increment/decrement
+        incrementAgeBits(original);
+        int ageBits = getAgeBits(original);
+        if(ageBits != 0){
+            SubstrateAllocationProfilingData.incrementAllocation(allocationContext & 0x1fffffff, getAgeBits(original));
+            SubstrateAllocationProfilingData.decrementAllocation(allocationContext & 0x1fffffff, getAgeBits(original) - 1);
         }
 
         if (HeapOptions.TraceObjectPromotion.getValue() && original.getClass().getName().contains("SimpleObject")) {
-            UnsignedWord header = ObjectHeaderImpl.readHeaderFromObject(original);
             long[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationContext);
             Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime: ")
-                    .number(indexToLifetime[index], 10, false)
-                    .string("  epoch: ").number(HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().rawValue(), 10, true)
-                    .string("  fieldCounters[allocationContext]: ").number(SubstrateAllocationProfilingData.getAllocationsForSite(allocationContext), 10, true)
+                    .number(ageBits, 2, false)
                     .string("  allocationContext: ").hex(allocationContext)
                     .string("  allocations: [").number(allocations[0], 10, false).string(", ")
-                                .number(allocations[1], 10, false).string(", ")
-                                .number(allocations[2], 10, false).string(", ")
-                                .number(allocations[3], 10, false).string(", ...]")
-                    .hex(header)
+                    .number(allocations[1], 10, false).string(", ")
+                    .number(allocations[2], 10, false).string(", ")
+                    .number(allocations[3], 10, false).string(", ")
+                    .number(allocations[4], 10, false).string(", ")
+                    .number(allocations[5], 10, false).string(", ")
+                    .number(allocations[6], 10, false).string(", ")
+                    .number(allocations[7], 10, false).string("]")
+                    .string("  fieldCounters[allocationContext]: ").number(SubstrateAllocationProfilingData.getAllocationsForSite(allocationContext), 10, true)
+                    .string("  epoch: ").number(HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().rawValue(), 10, false)
                     .string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
-                    .string("  age: ").hex(age).string("]").newline();
-                    //.string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
+                    .string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
         }
+
 
         Object copy = copyAlignedObject(original); //Don't delete
         ObjectHeaderImpl.installForwardingPointer(original, copy); //Don't delete
-        indexToValue[index] = Word.objectToUntrackedPointer(copy).rawValue(); // We use the latest pointer
         return copy;
     }
 
