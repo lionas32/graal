@@ -382,7 +382,8 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         public static long fieldCounter;
         //We will now try to track the allocation site of some objects
         public static long[] fieldCounters = new long[65536];
-        public static long[][] lifeTimeCounters = new long[65536][16];
+        public static long[][] lifeTimeCounters = new long[65536][8];
+        public static final int allocationSiteMask = 0x1fffffff;
 
 
         public SubstrateAllocationProfilingData(AllocationSnippetCounters snippetCounters, AllocationCounter allocationSiteCounter) {
@@ -395,23 +396,28 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         }
 
         public static final long getAllocationsForSite(int allocationSite){
+            allocationSite = allocationSite & allocationSiteMask;
             return fieldCounters[allocationSite % fieldCounters.length];
         }
 
         public static final void incrementAllocation(int allocationSite){
+            allocationSite = allocationSite & allocationSiteMask;
             fieldCounters[allocationSite % fieldCounters.length] += 1;
         }
 
         // Lifetime table
         public static final void incrementAllocation(int allocationSite, int lifetime){
+            allocationSite = allocationSite & allocationSiteMask;
             lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] += 1;
         }
 
         public static final void decrementAllocation(int allocationSite, int lifetime){
+            allocationSite = allocationSite & allocationSiteMask;
             lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] -= 1;
         }
 
         public static final long[] getLifetimesForAllocationSite(int allocationSite){
+            allocationSite = allocationSite & allocationSiteMask;
             return lifeTimeCounters[allocationSite % lifeTimeCounters.length];
         }
     }
@@ -486,11 +492,6 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
 
                 SharedType type = (SharedType) node.instanceClass();
                 DynamicHub hub = type.getHub();
-                System.out.println("NEWINSTANCENODE_LOWER");
-                System.out.println("n.instanceClass().toString(): " + node.instanceClass().toString());
-                System.out.println("n.hashCodeOffset?: " + hub.getHashCodeOffset());
-                System.out.println("n.getPersonalAllocationSite?: " + Integer.toHexString(node.getPersonalAllocationSite()));
-                System.out.println("n.getPersonalAllocationSite? (int): " + node.getPersonalAllocationSite());
 
                 ConstantNode hubConstant = ConstantNode.forConstant(SubstrateObjectConstant.forObject(hub), providers.getMetaAccess(), graph);
                 long size = LayoutEncoding.getInstanceSize(hub.getLayoutEncoding()).rawValue();
@@ -531,7 +532,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                 args.addConst("emitMemoryBarrier", node.emitMemoryBarrier());
                 args.addConst("maybeUnroll", length.isConstant());
                 args.addConst("supportsBulkZeroing", tool.getLowerer().supportsBulkZeroing());
-                args.addConst("profilingData", getProfilingData(node, type, 0));
+                args.addConst("profilingData", getProfilingData(node, type, node.getPersonalAllocationSite()));
 
                 template(node, args).instantiate(providers.getMetaAccess(), node, SnippetTemplate.DEFAULT_REPLACER, args);
             }
