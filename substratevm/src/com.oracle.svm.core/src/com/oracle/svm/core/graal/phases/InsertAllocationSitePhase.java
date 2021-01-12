@@ -2,7 +2,6 @@ package com.oracle.svm.core.graal.phases;
 
 import com.oracle.svm.core.hub.DynamicHub;
 import com.oracle.svm.core.meta.SharedType;
-import com.oracle.truffle.api.dsl.Cached;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 import org.graalvm.compiler.nodeinfo.Verbosity;
 import org.graalvm.compiler.nodes.ConstantNode;
