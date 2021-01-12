@@ -405,21 +405,34 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             fieldCounters[allocationSite % fieldCounters.length] += 1;
         }
 
-        // Lifetime table
         public static final void incrementAllocation(int allocationSite, int lifetime){
-            allocationSite = allocationSite & allocationSiteMask;
-            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] += 1;
+            StaticObjectLifetimeTable.incrementAllocation(allocationSite, lifetime);
         }
 
         public static final void decrementAllocation(int allocationSite, int lifetime){
-            allocationSite = allocationSite & allocationSiteMask;
-            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] -= 1;
+            StaticObjectLifetimeTable.decrementAllocation(allocationSite, lifetime);
         }
 
-        public static final long[] getLifetimesForAllocationSite(int allocationSite){
-            allocationSite = allocationSite & allocationSiteMask;
-            return lifeTimeCounters[allocationSite % lifeTimeCounters.length];
+        public static final int[] getLifetimesForAllocationSite(int allocationSite){
+            return StaticObjectLifetimeTable.getLifetimesForAllocationSite(allocationSite);
         }
+
+
+        // Lifetime table
+//        public static final void incrementAllocation(int allocationSite, int lifetime){
+//            allocationSite = allocationSite & allocationSiteMask;
+//            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] += 1;
+//        }
+//
+//        public static final void decrementAllocation(int allocationSite, int lifetime){
+//            allocationSite = allocationSite & allocationSiteMask;
+//            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] -= 1;
+//        }
+//
+//        public static final long[] getLifetimesForAllocationSite(int allocationSite){
+//            allocationSite = allocationSite & allocationSiteMask;
+//            return lifeTimeCounters[allocationSite % lifeTimeCounters.length];
+//        }
     }
 
     public abstract static class Templates extends SubstrateTemplates {
@@ -479,7 +492,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             if (counterName == null) {
                 counterName = node.graph().method().format("%H.%n(%p)");
             }
-            return allocationSite.createCounter2(counterName, personalAllocationSite);
+            return allocationSite.createCounterWithAllocationSite(counterName, personalAllocationSite);
         }
 
         private class NewInstanceLowering implements NodeLoweringProvider<NewInstanceNode> {
