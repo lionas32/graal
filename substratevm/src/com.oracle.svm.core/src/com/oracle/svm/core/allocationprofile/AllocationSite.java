@@ -105,7 +105,7 @@ public final class AllocationSite {
         return counter;
     }
 
-    public AllocationCounter createCounter2(String counterName, int personalAllocationSite) {
+    public AllocationCounter createCounterWithAllocationSite(String counterName, int personalAllocationSite) {
         AllocationCounter counter;
         do {
             counter = new AllocationCounter(counterName, firstCounter.get(), personalAllocationSite);

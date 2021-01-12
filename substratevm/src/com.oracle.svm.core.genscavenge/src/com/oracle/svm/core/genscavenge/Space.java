@@ -475,7 +475,7 @@ final class Space {
 
     private void releaseAlignedHeapChunks() {
         for (AlignedHeapChunk.AlignedHeader chunk = popAlignedHeapChunk(); chunk.isNonNull(); chunk = popAlignedHeapChunk()) {
-            HeapImpl.getChunkProvider().consumeAlignedChunk(chunk, true);
+            HeapImpl.getChunkProvider().consumeAlignedChunk(chunk);
         }
         assert getFirstAlignedHeapChunk().isNull() : "Failed to remove first AlignedHeapChunk.";
         assert getLastAlignedHeapChunk().isNull() : "Failed to remove last AlignedHeapChunk.";
@@ -526,19 +526,24 @@ final class Space {
         }
 
         if (HeapOptions.TraceObjectPromotion.getValue() && original.getClass().getName().contains("SimpleObject")) {
-            long[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationContext);
+            int[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationContext & 0x1fffffff);
             Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime: ")
                     .number(ageBits, 2, false)
-                    .string("  allocationContext: ").hex(allocationContext)
-                    .string("  allocations: [").number(allocations[0], 10, false).string(", ")
-                    .number(allocations[1], 10, false).string(", ")
-                    .number(allocations[2], 10, false).string(", ")
-                    .number(allocations[3], 10, false).string(", ")
-                    .number(allocations[4], 10, false).string(", ")
-                    .number(allocations[5], 10, false).string(", ")
-                    .number(allocations[6], 10, false).string(", ")
-                    .number(allocations[7], 10, false).string("]")
-                    .string("  fieldCounters[allocationContext]: ").number(SubstrateAllocationProfilingData.getAllocationsForSite(allocationContext), 10, true)
+                    .string("  allocationContext: ").hex(allocationContext & 0x1fffffff)
+                    .string("  allocations: [");
+            if(allocations == null){
+                Log.log().string("null]");
+            } else {
+                Log.log().number(allocations[0], 10, false).string(", ")
+                        .number(allocations[1], 10, false).string(", ")
+                        .number(allocations[2], 10, false).string(", ")
+                        .number(allocations[3], 10, false).string(", ")
+                        .number(allocations[4], 10, false).string(", ")
+                        .number(allocations[5], 10, false).string(", ")
+                        .number(allocations[6], 10, false).string(", ")
+                        .number(allocations[7], 10, false).string("]");
+            }
+            Log.log().string("  fieldCounters[allocationContext]: ").number(SubstrateAllocationProfilingData.getAllocationsForSite(allocationContext), 10, true)
                     .string("  epoch: ").number(HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().rawValue(), 10, false)
                     .string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
                     .string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
