@@ -102,6 +102,8 @@ public final class GCImpl implements GC {
     private final RuntimeCodeCacheWalker runtimeCodeCacheWalker = new RuntimeCodeCacheWalker(greyToBlackObjRefVisitor);
     private final RuntimeCodeCacheCleaner runtimeCodeCacheCleaner = new RuntimeCodeCacheCleaner();
 
+    public final DecrementAgeVisitor decrementAgeVisitor = new DecrementAgeVisitor();
+
     private final Accounting accounting = new Accounting();
     private final Timers timers = new Timers();
 

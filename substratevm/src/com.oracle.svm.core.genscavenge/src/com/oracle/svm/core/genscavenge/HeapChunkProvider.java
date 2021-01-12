@@ -126,12 +126,11 @@ final class HeapChunkProvider {
     /** Release an AlignedHeapChunk, either to the free list or back to the operating system. */
     void consumeAlignedChunk(AlignedHeader chunk) {
         log().string("[HeapChunkProvider.consumeAlignedChunk  chunk: ").hex(chunk).newline();
-
+        AlignedHeapChunk.walkObjects2(chunk, GCImpl.getGCImpl().decrementAgeVisitor); // For more accurate object lifetime information
         if (keepAlignedChunk()) {
             cleanAlignedChunk(chunk);
             pushUnusedAlignedChunk(chunk);
         } else {
-            log().string("  release memory to the OS").newline();
             freeAlignedChunk(chunk);
         }
         log().string("  ]").newline();

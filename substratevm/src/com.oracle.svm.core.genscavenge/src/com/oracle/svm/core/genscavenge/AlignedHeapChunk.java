@@ -212,6 +212,10 @@ public final class AlignedHeapChunk {
         return HeapChunk.walkObjectsFrom(that, getObjectsStart(that), visitor);
     }
 
+    static boolean walkObjects2(AlignedHeader that, ObjectVisitor visitor) {
+        return HeapChunk.walkObjectsFrom2(that, getObjectsStart(that), visitor);
+    }
+
     @AlwaysInline("GC performance")
     static boolean walkObjectsInline(AlignedHeader that, ObjectVisitor visitor) {
         return HeapChunk.walkObjectsFromInline(that, getObjectsStart(that), visitor);

@@ -273,6 +273,30 @@ final class HeapChunk {
         return walkObjectsFromInline(that, offset, visitor);
     }
 
+    @NeverInline("Not performance critical")
+    public static boolean walkObjectsFrom2(Header<?> that, Pointer offset, ObjectVisitor visitor) {
+        return walkObjectsFromInline2(that, offset, visitor);
+    }
+
+    public static boolean walkObjectsFromInline2(Header<?> that, Pointer startOffset, ObjectVisitor visitor) {
+        Pointer offset = startOffset;
+
+        while (offset.belowThan(getTopPointer(that))) { // crucial: top can move, so always re-read
+            UnsignedWord header = ObjectHeaderImpl.readHeaderFromPointerCarefully(offset); // this seems to be necessary
+            Object obj;
+            if (ObjectHeaderImpl.isForwardedHeaderCarefully(header)) {
+                obj = ObjectHeaderImpl.getForwardedObject(offset);
+            } else {
+                obj = offset.toObject();
+            }
+            if (!visitor.visitObjectInline(obj)) {
+                return false;
+            }
+            offset = offset.add(LayoutEncoding.getSizeFromObject(obj));
+        }
+        return true;
+    }
+
     @AlwaysInline("GC performance")
     public static boolean walkObjectsFromInline(Header<?> that, Pointer startOffset, ObjectVisitor visitor) {
         Pointer offset = startOffset;
