@@ -14,6 +14,9 @@ public class StaticObjectLifetimeTable {
 
     // Lifetime table
     public static final boolean incrementAllocation(int allocationSite, int lifetime){
+        if(lifetime == 0b111){
+            return false;
+        }
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
             if(allocationSites[hash] == 0){

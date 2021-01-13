@@ -31,6 +31,7 @@ import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.probabil
 import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets.SubstrateAllocationProfilingData;
 import com.oracle.svm.core.jdk.IdentityHashCodeSupport;
 import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
+import org.graalvm.compiler.word.ObjectAccess;
 import org.graalvm.compiler.word.Word;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
@@ -491,21 +492,25 @@ final class Space {
 
     void incrementAgeBits(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
-        int allocationContextWithAge = GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset);
-        int ageBits = (allocationContextWithAge >> 29) + 1;
+        int allocationContextWithAge = ObjectAccess.readInt(obj, hashCodeOffset);
+        int newAge = (allocationContextWithAge >> 29) + 1;
         // Maximum age
-        if(ageBits == 0b111){
+        if(newAge == 0b111){
             return;
         }
-        int newAllocationContextWithAge = (ageBits << 29) | (allocationContextWithAge & 0x1fffffff);
+        int newAllocationContextWithAge = (newAge << 29) | (allocationContextWithAge & 0x1fffffff);
         if(!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContextWithAge, newAllocationContextWithAge)){
             Log.log().string("incrementAgeBits: Wrong allocation context").newline();
         }
     }
 
-    int getAgeBits(Object obj){
+    int readAllocationSite(int allocationContext){
+        return allocationContext & 0x1fffffff;
+    }
+
+    int readAgeBits(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
-        return GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset) >>> 29;
+        return ObjectAccess.readInt(obj, hashCodeOffset) >>> 29;
     }
 
     /** Promote an aligned Object to this Space. */
@@ -513,16 +518,14 @@ final class Space {
         assert ObjectHeaderImpl.isAlignedObject(original);
         assert this != originalSpace && originalSpace.isFromSpace();
 
-        //Using OLD
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(original);
-        int allocationContext = GraalUnsafeAccess.getUnsafe().getInt(original, (long) hashCodeOffset);
+        int allocationContext = ObjectAccess.readInt(original, hashCodeOffset);
 
-        //TODO: Handle the case when its 0b111, then we skip increment/decrement
         incrementAgeBits(original);
-        int ageBits = getAgeBits(original);
-        if(ageBits != 0){
-            SubstrateAllocationProfilingData.incrementAllocation(allocationContext & 0x1fffffff, getAgeBits(original));
-            SubstrateAllocationProfilingData.decrementAllocation(allocationContext & 0x1fffffff, getAgeBits(original) - 1);
+        int ageBits = readAgeBits(original);
+        if(ageBits != 0 && ageBits != 0b111){
+            SubstrateAllocationProfilingData.incrementAllocation(readAllocationSite(allocationContext), ageBits);
+            SubstrateAllocationProfilingData.decrementAllocation(readAllocationSite(allocationContext), ageBits - 1);
         }
 
         if (HeapOptions.TraceObjectPromotion.getValue() && original.getClass().getName().contains("SimpleObject")) {
@@ -531,8 +534,8 @@ final class Space {
                     .number(ageBits, 2, false)
                     .string("  allocationContext: ").hex(allocationContext & 0x1fffffff)
                     .string("  allocations: [");
-            if(allocations == null){
-                Log.log().string("null]");
+            if (allocations == null) {
+                Log.log().string("null (this shouldn't be null)]");
             } else {
                 Log.log().number(allocations[0], 10, false).string(", ")
                         .number(allocations[1], 10, false).string(", ")
@@ -543,15 +546,14 @@ final class Space {
                         .number(allocations[6], 10, false).string(", ")
                         .number(allocations[7], 10, false).string("]");
             }
-            Log.log().string("  fieldCounters[allocationContext]: ").number(SubstrateAllocationProfilingData.getAllocationsForSite(allocationContext), 10, true)
-                    .string("  epoch: ").number(HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().rawValue(), 10, false)
+            Log.log().string("  epoch: ").number(HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().rawValue(), 10, false)
                     .string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
                     .string("  size: ").unsigned(LayoutEncoding.getSizeFromObject(original)).string("]").newline();
         }
 
 
-        Object copy = copyAlignedObject(original); //Don't delete
-        ObjectHeaderImpl.installForwardingPointer(original, copy); //Don't delete
+        Object copy = copyAlignedObject(original);
+        ObjectHeaderImpl.installForwardingPointer(original, copy);
         return copy;
     }
 

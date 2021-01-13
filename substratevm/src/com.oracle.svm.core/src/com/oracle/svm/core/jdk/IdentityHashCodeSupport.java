@@ -63,13 +63,9 @@ public final class IdentityHashCodeSupport {
 
         // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();
-        Log.log().string(" hashCode before insert: ")
-                .number(GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset), 16, false);
         if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, 0, newHashCode)) {
             newHashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IDENTITY_HASHCODE_LOCATION);
         }
-        Log.log().string(" hashCode after insert: ")
-                .number(GraalUnsafeAccess.getUnsafe().getInt(obj, (long) hashCodeOffset), 16, false).newline();
         VMError.guarantee(newHashCode != 0, "Missing identity hash code");
         return newHashCode;
     }

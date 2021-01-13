@@ -30,7 +30,7 @@ import com.oracle.svm.core.graal.snippets.StaticObjectLifetimeTable;
 import com.oracle.svm.core.heap.ObjectVisitor;
 import com.oracle.svm.core.snippets.KnownIntrinsics;
 import com.oracle.svm.core.util.VMError;
-import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
+import org.graalvm.compiler.word.ObjectAccess;
 
 /**
  * Run an ObjectReferenceVisitor ({@link GreyToBlackObjRefVisitor}) over any interior object
@@ -49,7 +49,7 @@ final class DecrementAgeVisitor implements ObjectVisitor {
     @Override
     @AlwaysInline("GC performance")
     public boolean visitObjectInline(Object o) {
-        int fullHeader = GraalUnsafeAccess.getUnsafe().getInt(o, (long) KnownIntrinsics.readHub(o).getHashCodeOffset());
+        int fullHeader = ObjectAccess.readInt(o, KnownIntrinsics.readHub(o).getHashCodeOffset());
         int allocationSite = 0x1fffffff & fullHeader;
         int age = fullHeader >>> 29;
         StaticObjectLifetimeTable.decrementAllocation(allocationSite, age);

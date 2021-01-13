@@ -7,6 +7,7 @@ import org.graalvm.compiler.nodeinfo.Verbosity;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
 import org.graalvm.compiler.nodes.ValueNode;
+import org.graalvm.compiler.nodes.java.AbstractNewObjectNode;
 import org.graalvm.compiler.nodes.java.NewArrayNode;
 import org.graalvm.compiler.nodes.java.NewInstanceNode;
 import org.graalvm.compiler.nodes.memory.OnHeapMemoryAccess;
@@ -30,58 +31,36 @@ public class InsertAllocationSitePhase extends Phase {
 
     private void setupInstanceNodes(StructuredGraph graph){
         for (NewInstanceNode n : graph.getNodes().filter(NewInstanceNode.class)) {
-            System.out.println("NEWINSTANCENODE");
-            System.out.println("n.instanceClass().toString(): " + n.instanceClass().toString());
-            System.out.println("n.toString(Verbosity.All): " + n.toString(Verbosity.All));
             SharedType type = (SharedType) n.instanceClass();
             DynamicHub hub = type.getHub();
-            int hubHashCode = hub.getHashCodeOffset();
-            System.out.println("n.getHashCodeOffset: " + hubHashCode);
-            //hashCodeOffset constant value
-            ConstantNode hashCodeOffsetNode = ConstantNode.forInt(hubHashCode);
-            graph.addWithoutUnique(hashCodeOffsetNode);
-            //the whole address for the hashCodeOffset
-            AddressNode address = new OffsetAddressNode(n, hashCodeOffsetNode);
-            graph.unique(address);
-            int allocationSiteForNode = createAllocationSiteForNode(n);
-            System.out.println("allocationSiteForNode: " + Integer.toHexString(allocationSiteForNode));
-            ConstantNode allocationSiteValueNode = ConstantNode.forInt(allocationSiteForNode);
-            //the node we use to writing to memory (or overwriting the object hashcode)
-            WriteNode writeNode = new WriteNode(address,
-                    IDENTITY_HASHCODE_LOCATION, allocationSiteValueNode, OnHeapMemoryAccess.BarrierType.UNKNOWN);
-            graph.addWithoutUnique(allocationSiteValueNode);
-            graph.addAfterFixed(n, writeNode);
-            graph.add(writeNode);
-            n.setPersonalAllocationSite(allocationSiteForNode);
+            setupNode(hub, graph, n);
         }
+    }
+
+    private void setupNode(DynamicHub hub, StructuredGraph graph, AbstractNewObjectNode n){
+        int hubHashCode = hub.getHashCodeOffset();
+        //hashCodeOffset constant value
+        ConstantNode hashCodeOffsetNode = ConstantNode.forInt(hubHashCode);
+        graph.addWithoutUnique(hashCodeOffsetNode);
+        //the whole address for the hashCodeOffset
+        AddressNode address = new OffsetAddressNode(n, hashCodeOffsetNode);
+        graph.unique(address);
+        int allocationSiteForNode = createAllocationSiteForNode(n);
+        ConstantNode allocationSiteValueNode = ConstantNode.forInt(allocationSiteForNode);
+        //the node we use to writing to memory (or overwriting the object hashcode)
+        WriteNode writeNode = new WriteNode(address,
+                IDENTITY_HASHCODE_LOCATION, allocationSiteValueNode, OnHeapMemoryAccess.BarrierType.UNKNOWN);
+        graph.addWithoutUnique(allocationSiteValueNode);
+        graph.addAfterFixed(n, writeNode);
+        graph.add(writeNode);
+        n.setPersonalAllocationSite(allocationSiteForNode);
     }
 
     private void setupArrayNodes(StructuredGraph graph) {
         for (NewArrayNode n : graph.getNodes().filter(NewArrayNode.class)) {
-            System.out.println("NEWARRAYNODE");
-            System.out.println("n.elementType().toString(): " + n.elementType().toString());
-            System.out.println("n.length().toString(): " + n.length().toString());
-            System.out.println("n.toString(Verbosity.All): " + n.toString(Verbosity.All));
             SharedType type = (SharedType) n.elementType();
             DynamicHub hub = type.getHub().getArrayHub();
-            int hubHashCode = hub.getHashCodeOffset();
-            System.out.println("n.getHashCodeOffset: " + hubHashCode);
-            //hashCodeOffset constant value
-            ConstantNode hashCodeOffsetNode = ConstantNode.forInt(hubHashCode);
-            graph.addWithoutUnique(hashCodeOffsetNode);
-            //the whole address for the hashCodeOffset
-            AddressNode address = new OffsetAddressNode(n, hashCodeOffsetNode);
-            graph.unique(address);
-            int allocationSiteForNode = createAllocationSiteForNode(n);
-            System.out.println("allocationSiteForNode: " + Integer.toHexString(allocationSiteForNode));
-            ConstantNode allocationSiteValueNode = ConstantNode.forInt(allocationSiteForNode);
-            //the node we use to writing to memory (or overwriting the object hashcode)
-            WriteNode writeNode = new WriteNode(address,
-                    IDENTITY_HASHCODE_LOCATION, allocationSiteValueNode, OnHeapMemoryAccess.BarrierType.UNKNOWN);
-            graph.addWithoutUnique(allocationSiteValueNode);
-            graph.addAfterFixed(n, writeNode);
-            graph.add(writeNode);
-            n.setPersonalAllocationSite(allocationSiteForNode);
+            setupNode(hub, graph, n);
         }
     }
 

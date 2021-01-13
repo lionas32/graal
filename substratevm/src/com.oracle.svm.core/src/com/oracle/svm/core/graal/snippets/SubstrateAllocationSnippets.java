@@ -311,9 +311,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     protected final void profileAllocation(AllocationProfilingData profilingData, UnsignedWord size) {
         if (AllocationSite.Options.AllocationProfiling.getValue()) {
             SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
-            SubstrateAllocationProfilingData.objectAllocated();
             AllocationCounter allocationSiteCounter = svmProfilingData.allocationSiteCounter;
-            SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite());
             SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite(), 0);
             allocationSiteCounter.incrementCount();
             allocationSiteCounter.incrementSize(size.rawValue());
@@ -379,30 +377,10 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
 
     public static class SubstrateAllocationProfilingData extends AllocationProfilingData {
         final AllocationCounter allocationSiteCounter;
-        public static long fieldCounter;
-        //We will now try to track the allocation site of some objects
-        public static long[] fieldCounters = new long[65536];
-        public static long[][] lifeTimeCounters = new long[65536][8];
-        public static final int allocationSiteMask = 0x1fffffff;
-
 
         public SubstrateAllocationProfilingData(AllocationSnippetCounters snippetCounters, AllocationCounter allocationSiteCounter) {
             super(snippetCounters);
             this.allocationSiteCounter = allocationSiteCounter;
-        }
-
-        public static final void objectAllocated(){
-            fieldCounter++;
-        }
-
-        public static final long getAllocationsForSite(int allocationSite){
-            allocationSite = allocationSite & allocationSiteMask;
-            return fieldCounters[allocationSite % fieldCounters.length];
-        }
-
-        public static final void incrementAllocation(int allocationSite){
-            allocationSite = allocationSite & allocationSiteMask;
-            fieldCounters[allocationSite % fieldCounters.length] += 1;
         }
 
         public static final void incrementAllocation(int allocationSite, int lifetime){
@@ -416,23 +394,6 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         public static final int[] getLifetimesForAllocationSite(int allocationSite){
             return StaticObjectLifetimeTable.getLifetimesForAllocationSite(allocationSite);
         }
-
-
-        // Lifetime table
-//        public static final void incrementAllocation(int allocationSite, int lifetime){
-//            allocationSite = allocationSite & allocationSiteMask;
-//            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] += 1;
-//        }
-//
-//        public static final void decrementAllocation(int allocationSite, int lifetime){
-//            allocationSite = allocationSite & allocationSiteMask;
-//            lifeTimeCounters[allocationSite % lifeTimeCounters.length][lifetime] -= 1;
-//        }
-//
-//        public static final long[] getLifetimesForAllocationSite(int allocationSite){
-//            allocationSite = allocationSite & allocationSiteMask;
-//            return lifeTimeCounters[allocationSite % lifeTimeCounters.length];
-//        }
     }
 
     public abstract static class Templates extends SubstrateTemplates {
