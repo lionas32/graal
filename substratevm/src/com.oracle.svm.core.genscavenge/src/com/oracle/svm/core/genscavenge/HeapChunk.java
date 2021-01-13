@@ -26,7 +26,9 @@ package com.oracle.svm.core.genscavenge;
 
 import java.util.function.IntUnaryOperator;
 
+import com.oracle.svm.core.snippets.KnownIntrinsics;
 import org.graalvm.compiler.options.Option;
+import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
 import org.graalvm.compiler.word.Word;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
@@ -282,15 +284,13 @@ final class HeapChunk {
         Pointer offset = startOffset;
 
         while (offset.belowThan(getTopPointer(that))) { // crucial: top can move, so always re-read
-            UnsignedWord header = ObjectHeaderImpl.readHeaderFromPointerCarefully(offset); // this seems to be necessary
+            UnsignedWord header = ObjectHeaderImpl.readHeaderFromPointer(offset); // this seems to be necessary
             Object obj;
-            if (ObjectHeaderImpl.isForwardedHeaderCarefully(header)) {
+            if (ObjectHeaderImpl.isForwardedHeader(header)) {
                 obj = ObjectHeaderImpl.getForwardedObject(offset);
             } else {
                 obj = offset.toObject();
-            }
-            if (!visitor.visitObjectInline(obj)) {
-                return false;
+                visitor.visitObjectInline(obj);
             }
             offset = offset.add(LayoutEncoding.getSizeFromObject(obj));
         }

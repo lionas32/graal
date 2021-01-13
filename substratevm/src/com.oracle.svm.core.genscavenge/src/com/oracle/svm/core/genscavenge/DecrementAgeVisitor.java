@@ -49,12 +49,10 @@ final class DecrementAgeVisitor implements ObjectVisitor {
     @Override
     @AlwaysInline("GC performance")
     public boolean visitObjectInline(Object o) {
-        if(HeapVerifier.classifyObject(o) == -2){
-            int fullHeader = GraalUnsafeAccess.getUnsafe().getInt(o, (long) KnownIntrinsics.readHub(o).getHashCodeOffset());
-            int allocationSite = 0x1fffffff & fullHeader;
-            int age = fullHeader >>> 29;
-            StaticObjectLifetimeTable.decrementAllocation(allocationSite, age);
-        }
+        int fullHeader = GraalUnsafeAccess.getUnsafe().getInt(o, (long) KnownIntrinsics.readHub(o).getHashCodeOffset());
+        int allocationSite = 0x1fffffff & fullHeader;
+        int age = fullHeader >>> 29;
+        StaticObjectLifetimeTable.decrementAllocation(allocationSite, age);
         return true;
     }
 
