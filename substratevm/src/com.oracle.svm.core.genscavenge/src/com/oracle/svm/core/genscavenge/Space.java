@@ -490,27 +490,47 @@ final class Space {
         assert getLastUnalignedHeapChunk().isNull() : "Failed to remove last UnalignedHeapChunk";
     }
 
-    void incrementAgeBits(Object obj){
+    private void incrementAgeBits(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
-        int allocationContextWithAge = ObjectAccess.readInt(obj, hashCodeOffset);
-        int newAge = (allocationContextWithAge >> 29) + 1;
-        // Maximum age
-        if(newAge == 0b111){
-            return;
+        int allocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
+        int oldAge = maskAge(allocationContext);
+
+        if(oldAge == 0b111){
+            return; // Already at maximum age, can't increment
         }
-        int newAllocationContextWithAge = (newAge << 29) | (allocationContextWithAge & 0x1fffffff);
-        if(!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContextWithAge, newAllocationContextWithAge)){
+
+        int newAge = oldAge + 1;
+
+        int newAllocationContext = (newAge << 29) | (maskAllocationSite(allocationContext));
+        if(!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContext, newAllocationContext)){
             Log.log().string("incrementAgeBits: Wrong allocation context").newline();
         }
     }
 
-    int readAllocationSite(int allocationContext){
+    private int maskAllocationSite(int allocationContext){
         return allocationContext & 0x1fffffff;
     }
 
-    int readAgeBits(Object obj){
+    private int maskAge(int allocationContext) { return allocationContext >>> 29; }
+
+    private int readAgeBits(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
         return ObjectAccess.readInt(obj, hashCodeOffset) >>> 29;
+    }
+
+    private int computeLifetimeBeforePromotion(Object obj){
+        int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
+        int allocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
+
+        int oldAgeBits = readAgeBits(obj);
+        incrementAgeBits(obj);
+        int ageBits = readAgeBits(obj);
+        if((ageBits > 0 && ageBits != 0b111) || oldAgeBits == 0b110) {
+            SubstrateAllocationProfilingData.incrementAllocation(maskAllocationSite(allocationContext), ageBits);
+            SubstrateAllocationProfilingData.decrementAllocation(maskAllocationSite(allocationContext), ageBits - 1);
+        }
+
+        return ObjectAccess.readInt(obj, hashCodeOffset); // Have to compute it again due to possible new age
     }
 
     /** Promote an aligned Object to this Space. */
@@ -518,21 +538,16 @@ final class Space {
         assert ObjectHeaderImpl.isAlignedObject(original);
         assert this != originalSpace && originalSpace.isFromSpace();
 
-        int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(original);
-        int allocationContext = ObjectAccess.readInt(original, hashCodeOffset);
+        int allocationContext = computeLifetimeBeforePromotion(original);
 
-        incrementAgeBits(original);
-        int ageBits = readAgeBits(original);
-        if(ageBits != 0 && ageBits != 0b111){
-            SubstrateAllocationProfilingData.incrementAllocation(readAllocationSite(allocationContext), ageBits);
-            SubstrateAllocationProfilingData.decrementAllocation(readAllocationSite(allocationContext), ageBits - 1);
-        }
+        if (HeapOptions.TraceObjectPromotion.getValue() && original.getClass().getName().contains("CustomGeneric")) {
+            int allocationSite = maskAllocationSite(allocationContext);
+            int ageBits = maskAge(allocationContext);
 
-        if (HeapOptions.TraceObjectPromotion.getValue() && original.getClass().getName().contains("SimpleObject")) {
-            int[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationContext & 0x1fffffff);
-            Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime: ")
+            int[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationSite);
+            Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime (binary): ")
                     .number(ageBits, 2, false)
-                    .string("  allocationContext: ").hex(allocationContext & 0x1fffffff)
+                    .string("  allocationSite: ").hex(allocationSite)
                     .string("  allocations: [");
             if (allocations == null) {
                 Log.log().string("null (this shouldn't be null)]");
