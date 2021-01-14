@@ -4,9 +4,7 @@ public class StaticObjectLifetimeTable {
     public static final int allocationSiteMask = 0x1fffffff;
     public static final int STATIC_SIZE = 65536;
     public static final int TABLE_PRIME = 7;
-    public static long fieldCounter; //TODO: This is not necessary anymore, can remove
     //We will now try to track the allocation site of some objects
-    public static int[] fieldCounters = new int[STATIC_SIZE]; //TODO: This is not necessary anymore, can remove
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][8];
     public static int[] allocationSites = new int[STATIC_SIZE];
@@ -14,8 +12,9 @@ public class StaticObjectLifetimeTable {
 
     // Lifetime table
     public static final boolean incrementAllocation(int allocationSite, int lifetime){
+        allocationSite &= allocationSiteMask;
         if(lifetime == 0b111){
-            return false;
+            return false; // Can't increment passed maximum age
         }
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
@@ -32,15 +31,14 @@ public class StaticObjectLifetimeTable {
     }
 
     public static final boolean decrementAllocation(int allocationSite, int lifetime){
+        allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
             if(allocationSites[hash] == 0){
-                return false;
+                return false; // Can't decrement something of age 0
             }
-            if(allocationSites[hash] == allocationSite){
-                if(allocationSiteCounters[hash][lifetime] > 0){
-                    allocationSiteCounters[hash][lifetime] -= 1;
-                }
+            if(allocationSites[hash] == allocationSite && allocationSiteCounters[hash][lifetime] > 0){
+                allocationSiteCounters[hash][lifetime] -= 1;
                 return true;
             }
         }
@@ -49,6 +47,7 @@ public class StaticObjectLifetimeTable {
 
 
     public static final int[] getLifetimesForAllocationSite(int allocationSite){
+        allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
             if(allocationSites[hash] == 0){
