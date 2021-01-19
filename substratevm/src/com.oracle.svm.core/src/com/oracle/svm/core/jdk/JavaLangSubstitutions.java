@@ -47,6 +47,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
+import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets;
 import org.graalvm.compiler.core.common.SuppressFBWarnings;
 import org.graalvm.compiler.word.ObjectAccess;
 import org.graalvm.compiler.word.Word;
@@ -298,7 +299,9 @@ final class Target_java_lang_System {
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
         UnsignedWord hashCodeOffsetWord = WordFactory.unsigned(hashCodeOffset);
         int hashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IdentityHashCodeSupport.IDENTITY_HASHCODE_LOCATION);
-        if (probability(FAST_PATH_PROBABILITY, hashCode != 0)) {
+        if (SubstrateAllocationSnippets.SubstrateAllocationProfilingData.exists(hashCode)){
+            return IdentityHashCodeSupport.generateIdentityHashCode(obj, hashCodeOffset);
+        } else if (probability(FAST_PATH_PROBABILITY, hashCode != 0)) {
             return hashCode;
         }
 

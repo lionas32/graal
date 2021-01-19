@@ -28,6 +28,7 @@ import java.util.SplittableRandom;
 
 import com.oracle.svm.core.config.ConfigurationValues;
 import com.oracle.svm.core.config.ObjectLayout;
+import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets.SubstrateAllocationProfilingData;
 import com.oracle.svm.core.hub.DynamicHub;
 import com.oracle.svm.core.log.Log;
 import com.oracle.svm.core.snippets.KnownIntrinsics;
@@ -60,12 +61,18 @@ public final class IdentityHashCodeSupport {
 
     public static int generateIdentityHashCode(Object obj, int hashCodeOffset) {
         UnsignedWord hashCodeOffsetWord = WordFactory.unsigned(hashCodeOffset);
+        int maybeAllocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
 
         // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();
         if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, 0, newHashCode)) {
-            newHashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IDENTITY_HASHCODE_LOCATION);
+            if(SubstrateAllocationProfilingData.exists(maybeAllocationContext)){
+               GraalUnsafeAccess.getUnsafe().putInt(obj, (long) hashCodeOffset, newHashCode);
+            } else {
+                newHashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IDENTITY_HASHCODE_LOCATION);
+            }
         }
+
         VMError.guarantee(newHashCode != 0, "Missing identity hash code");
         return newHashCode;
     }

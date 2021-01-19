@@ -3,7 +3,6 @@ package com.oracle.svm.core.graal.phases;
 import com.oracle.svm.core.hub.DynamicHub;
 import com.oracle.svm.core.meta.SharedType;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
-import org.graalvm.compiler.nodeinfo.Verbosity;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
 import org.graalvm.compiler.nodes.ValueNode;
@@ -16,6 +15,8 @@ import org.graalvm.compiler.nodes.memory.address.AddressNode;
 import org.graalvm.compiler.nodes.memory.address.OffsetAddressNode;
 import org.graalvm.compiler.phases.Phase;
 
+import java.util.Arrays;
+
 import static com.oracle.svm.core.jdk.IdentityHashCodeSupport.IDENTITY_HASHCODE_LOCATION;
 
 public class InsertAllocationSitePhase extends Phase {
@@ -23,17 +24,23 @@ public class InsertAllocationSitePhase extends Phase {
     private final int allocationCounterMask = 0x0000ffff;
     // Used as the second unique identifier;
     private int allocationCounter = 0;
+    private String[] skippablePackage = {"java.", "com.", "jdk.", "sun.", "org."};
+
     @Override
     protected void run(StructuredGraph graph) {
-        setupInstanceNodes(graph);
-        setupArrayNodes(graph);
-    }
-
-    private void setupInstanceNodes(StructuredGraph graph){
-        for (NewInstanceNode n : graph.getNodes().filter(NewInstanceNode.class)) {
-            SharedType type = (SharedType) n.instanceClass();
-            DynamicHub hub = type.getHub();
-            setupNode(hub, graph, n);
+        for(AbstractNewObjectNode n : graph.getNodes().filter(AbstractNewObjectNode.class)){
+            if (Arrays.stream(skippablePackage).anyMatch(e -> n.graph().method().format("%H").startsWith(e))) {
+                n.setPersonalAllocationSite(0);
+                continue;
+            } else if (n instanceof NewInstanceNode){
+                SharedType type = (SharedType) ((NewInstanceNode) n).instanceClass();
+                DynamicHub hub = type.getHub();
+                setupNode(hub, graph, n);
+            } else if (n instanceof NewArrayNode) {
+                SharedType type = (SharedType) ((NewArrayNode) n).elementType();
+                DynamicHub hub = type.getHub().getArrayHub();
+                setupNode(hub, graph, n);
+            }
         }
     }
 
@@ -54,14 +61,6 @@ public class InsertAllocationSitePhase extends Phase {
         graph.addAfterFixed(n, writeNode);
         graph.add(writeNode);
         n.setPersonalAllocationSite(allocationSiteForNode);
-    }
-
-    private void setupArrayNodes(StructuredGraph graph) {
-        for (NewArrayNode n : graph.getNodes().filter(NewArrayNode.class)) {
-            SharedType type = (SharedType) n.elementType();
-            DynamicHub hub = type.getHub().getArrayHub();
-            setupNode(hub, graph, n);
-        }
     }
 
     private int createAllocationSiteForNode(ValueNode node) {

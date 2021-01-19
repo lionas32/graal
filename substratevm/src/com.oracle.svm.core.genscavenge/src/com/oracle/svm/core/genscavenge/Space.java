@@ -521,6 +521,9 @@ final class Space {
     private int computeLifetimeBeforePromotion(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
         int allocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
+        if(allocationContext == 0 || !SubstrateAllocationProfilingData.exists(maskAllocationSite(allocationContext))){
+            return 0; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode) we skip over the object
+        }
 
         int oldAgeBits = readAgeBits(obj);
         incrementAgeBits(obj);
@@ -538,9 +541,9 @@ final class Space {
         assert ObjectHeaderImpl.isAlignedObject(original);
         assert this != originalSpace && originalSpace.isFromSpace();
 
-        int allocationContext = computeLifetimeBeforePromotion(original);
 
-        if (HeapOptions.TraceObjectPromotion.getValue() && original.getClass().getName().contains("CustomGeneric")) {
+        int allocationContext = computeLifetimeBeforePromotion(original);
+        if (HeapOptions.TraceObjectPromotion.getValue() && allocationContext != 0 && SubstrateAllocationProfilingData.exists(allocationContext)) {
             int allocationSite = maskAllocationSite(allocationContext);
             int ageBits = maskAge(allocationContext);
 

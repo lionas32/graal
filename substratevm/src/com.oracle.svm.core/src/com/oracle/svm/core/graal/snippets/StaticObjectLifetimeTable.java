@@ -27,6 +27,19 @@ public class StaticObjectLifetimeTable {
         return false;
     }
 
+    public static final boolean exists(int allocationSite){
+        allocationSite &= allocationSiteMask;
+        for(int i = 0; i < STATIC_SIZE; i++){
+            int hash = hash(i, allocationSite);
+            if(allocationSites[hash] == 0){
+                return false;
+            } else if (allocationSites[hash] == allocationSite) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static final boolean decrementAllocation(int allocationSite, int lifetime){
         allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){

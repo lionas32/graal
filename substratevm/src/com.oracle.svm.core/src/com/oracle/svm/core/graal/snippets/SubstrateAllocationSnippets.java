@@ -312,7 +312,10 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         if (AllocationSite.Options.AllocationProfiling.getValue()) {
             SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
             AllocationCounter allocationSiteCounter = svmProfilingData.allocationSiteCounter;
-            SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite(), 0);
+            // If 0, most likely a VM object, don't track it
+            if(allocationSiteCounter.getPersonalAllocationSite() != 0){
+                SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite(), 0);
+            }
             allocationSiteCounter.incrementCount();
             allocationSiteCounter.incrementSize(size.rawValue());
         }
@@ -393,6 +396,10 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
 
         public static final int[] getLifetimesForAllocationSite(int allocationSite){
             return StaticObjectLifetimeTable.getLifetimesForAllocationSite(allocationSite);
+        }
+
+        public static final boolean exists(int allocationSite){
+            return StaticObjectLifetimeTable.exists(allocationSite);
         }
     }
 
