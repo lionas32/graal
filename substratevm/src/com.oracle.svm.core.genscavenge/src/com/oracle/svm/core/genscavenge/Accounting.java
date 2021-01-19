@@ -122,14 +122,6 @@ final class Accounting {
         Space oldSpace = heap.getOldGeneration().getFromSpace();
         oldChunkBytesBefore = oldSpace.getChunkBytes();
         /* Objects are allocated in the young generation. */
-        if(SubstrateOptions.PersonalGC.getValue()){
-            Log personalLog = Log.log();
-            personalLog.newline();
-            personalLog.string("Young generation BEFORE collection.").newline();
-            youngGen.report(personalLog, false).newline();
-            personalLog.string("Old generation BEFORE collection.").newline();
-            heap.getOldGeneration().report(personalLog, true).newline();
-        }
         normalChunkBytes = normalChunkBytes.add(youngChunkBytesBefore);
         if (HeapOptions.PrintGCSummary.getValue()) {
             youngObjectBytesBefore = youngGen.getObjectBytes();
@@ -143,17 +135,6 @@ final class Accounting {
 
     void afterCollection(boolean completeCollection, Timer collectionTimer) {
         Log personalLog = Log.log();
-        if(SubstrateOptions.PersonalGC.getValue()){
-            personalLog.newline();
-            personalLog.string("Young generation AFTER collection.").newline();
-            HeapImpl heap = HeapImpl.getHeapImpl();
-            YoungGeneration youngGen = heap.getYoungGeneration();
-            OldGeneration oldGeneration = heap.getOldGeneration();
-            youngGen.report(personalLog, false).newline();
-            personalLog.string("Old generation AFTER collection.").newline();
-            oldGeneration.report(personalLog, true).newline();
-
-        }
         if (completeCollection) {
             afterCompleteCollection(collectionTimer);
         } else {

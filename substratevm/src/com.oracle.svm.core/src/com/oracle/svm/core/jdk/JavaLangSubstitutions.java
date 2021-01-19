@@ -299,8 +299,8 @@ final class Target_java_lang_System {
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
         UnsignedWord hashCodeOffsetWord = WordFactory.unsigned(hashCodeOffset);
         int hashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IdentityHashCodeSupport.IDENTITY_HASHCODE_LOCATION);
-        if (SubstrateAllocationSnippets.SubstrateAllocationProfilingData.exists(hashCode)){
-            return IdentityHashCodeSupport.generateIdentityHashCode(obj, hashCodeOffset);
+        if (SubstrateOptions.RolpGC.getValue() && SubstrateAllocationSnippets.SubstrateAllocationProfilingData.exists(hashCode)){
+            return IdentityHashCodeSupport.overwriteContextForHashCode(obj, hashCodeOffset, hashCode);
         } else if (probability(FAST_PATH_PROBABILITY, hashCode != 0)) {
             return hashCode;
         }

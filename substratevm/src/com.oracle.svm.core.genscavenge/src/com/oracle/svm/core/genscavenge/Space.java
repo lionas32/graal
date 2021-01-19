@@ -541,9 +541,14 @@ final class Space {
         assert ObjectHeaderImpl.isAlignedObject(original);
         assert this != originalSpace && originalSpace.isFromSpace();
 
+        int allocationContext = 0;
+        if(SubstrateOptions.RolpGC.getValue()){
+            allocationContext = computeLifetimeBeforePromotion(original);
+        }
 
-        int allocationContext = computeLifetimeBeforePromotion(original);
-        if (HeapOptions.TraceObjectPromotion.getValue() && allocationContext != 0 && SubstrateAllocationProfilingData.exists(allocationContext)) {
+        //TODO: Rewrite this to be less dependent on RolpGC
+        if (SubstrateOptions.RolpGC.getValue() && HeapOptions.TraceObjectPromotion.getValue() &&
+                allocationContext != 0 && SubstrateAllocationProfilingData.exists(allocationContext)) {
             int allocationSite = maskAllocationSite(allocationContext);
             int ageBits = maskAge(allocationContext);
 

@@ -45,11 +45,15 @@ public class StaticObjectLifetimeTable {
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
             if(allocationSites[hash] == 0){
-                return false; // Can't decrement something of age 0
+                return false;
             }
-            if(allocationSites[hash] == allocationSite && allocationSiteCounters[hash][lifetime] > 0){
-                allocationSiteCounters[hash][lifetime] -= 1;
-                return true;
+            if(allocationSites[hash] == allocationSite){
+                if(allocationSiteCounters[hash][lifetime] > 0){
+                    allocationSiteCounters[hash][lifetime] -= 1;
+                    return true;
+                }else{
+                    return false; // Can't decrement something of age 0
+                }
             }
         }
         return false;

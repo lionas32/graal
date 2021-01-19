@@ -26,6 +26,7 @@ package com.oracle.svm.core.jdk;
 
 import java.util.SplittableRandom;
 
+import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.config.ConfigurationValues;
 import com.oracle.svm.core.config.ObjectLayout;
 import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets.SubstrateAllocationProfilingData;
@@ -61,18 +62,26 @@ public final class IdentityHashCodeSupport {
 
     public static int generateIdentityHashCode(Object obj, int hashCodeOffset) {
         UnsignedWord hashCodeOffsetWord = WordFactory.unsigned(hashCodeOffset);
-        int maybeAllocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
-
         // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();
         if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, 0, newHashCode)) {
-            if(SubstrateAllocationProfilingData.exists(maybeAllocationContext)){
-               GraalUnsafeAccess.getUnsafe().putInt(obj, (long) hashCodeOffset, newHashCode);
-            } else {
-                newHashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IDENTITY_HASHCODE_LOCATION);
-            }
+            newHashCode = ObjectAccess.readInt(obj, hashCodeOffsetWord, IDENTITY_HASHCODE_LOCATION);
         }
+        VMError.guarantee(newHashCode != 0, "Missing identity hash code");
+        return newHashCode;
+    }
 
+    // Used when running with RolpGC
+    public static int overwriteContextForHashCode(Object obj, int hashCodeOffset, int allocationContext){
+        // generate a new hashcode and try to store it into the object
+        int newHashCode = generateHashCode();
+        int age = allocationContext >>> 29;
+        int allocationSite = allocationContext & 0x1fffffff;
+        SubstrateAllocationProfilingData.decrementAllocation(allocationSite, age);
+
+        if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContext, newHashCode)) {
+            throw VMError.shouldNotReachHere("should have swapped allocation context with hashcode here");
+        }
         VMError.guarantee(newHashCode != 0, "Missing identity hash code");
         return newHashCode;
     }

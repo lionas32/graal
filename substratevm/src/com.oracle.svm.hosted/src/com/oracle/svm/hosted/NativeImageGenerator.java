@@ -1308,7 +1308,10 @@ public class NativeImageGenerator {
             highTier.prependPhase(new RemoveUnwindPhase());
             highTier.prependPhase(new DeadStoreRemovalPhase());
         }
-        midTier.appendPhase(new InsertAllocationSitePhase());
+
+        if(SubstrateOptions.RolpGC.getValue()){
+            midTier.appendPhase(new InsertAllocationSitePhase());
+        }
 
         ListIterator<BasePhase<? super LowTierContext>> pos = lowTier.findPhase(LoweringPhase.class);
         pos.next();
