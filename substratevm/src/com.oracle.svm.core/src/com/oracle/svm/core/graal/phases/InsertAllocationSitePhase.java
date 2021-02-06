@@ -20,7 +20,7 @@ import java.util.Arrays;
 import static com.oracle.svm.core.jdk.IdentityHashCodeSupport.IDENTITY_HASHCODE_LOCATION;
 
 public class InsertAllocationSitePhase extends Phase {
-    private final int methodMask = 0x1fff0000;
+    private final int methodMask = 0x3fff0000;
     private final int allocationCounterMask = 0x0000ffff;
     // Used as the second unique identifier;
     private int allocationCounter = 0;
@@ -30,6 +30,7 @@ public class InsertAllocationSitePhase extends Phase {
     protected void run(StructuredGraph graph) {
         for(AbstractNewObjectNode n : graph.getNodes().filter(AbstractNewObjectNode.class)){
             if (Arrays.stream(skippablePackage).anyMatch(e -> n.graph().method().format("%H").startsWith(e))) {
+                // Used as a value we skip together with the OLD table
                 n.setPersonalAllocationSite(0);
                 continue;
             } else if (n instanceof NewInstanceNode){

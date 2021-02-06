@@ -51,11 +51,11 @@ final class DecrementAgeVisitor implements ObjectVisitor {
     @AlwaysInline("GC performance")
     public boolean visitObjectInline(Object o) {
         int fullHeader = ObjectAccess.readInt(o, KnownIntrinsics.readHub(o).getHashCodeOffset());
-        int allocationSite = 0x1fffffff & fullHeader;
+        int allocationSite = StaticObjectLifetimeTable.maskAllocationSite(fullHeader);
         if (allocationSite == 0 || !SubstrateAllocationProfilingData.exists(allocationSite)){
             return false; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode) we don't use the object
         }
-        int age = fullHeader >>> 29;
+        int age = StaticObjectLifetimeTable.maskAge(fullHeader);
         StaticObjectLifetimeTable.decrementAllocation(allocationSite, age);
         return true;
     }

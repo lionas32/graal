@@ -1,12 +1,13 @@
 package com.oracle.svm.core.graal.snippets;
 
 public class StaticObjectLifetimeTable {
-    public static final int allocationSiteMask = 0x1fffffff;
+    public static final int allocationSiteMask = 0x3fffffff;
+    public static final int MAX_AGE = 0b11;
     public static final int STATIC_SIZE = 65536;
     public static final int TABLE_PRIME = 7;
     //We will now try to track the allocation site of some objects
 
-    public static int[][] allocationSiteCounters = new int[STATIC_SIZE][8];
+    public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] allocationSites = new int[STATIC_SIZE];
     public static int objectCounter = 0;
 
@@ -25,6 +26,14 @@ public class StaticObjectLifetimeTable {
             }
         }
         return false;
+    }
+
+    public static final int maskAge(int allocationContext){
+        return allocationContext >>> 30;
+    }
+
+    public static final int maskAllocationSite(int allocationContext){
+        return allocationContext & allocationSiteMask;
     }
 
     public static final boolean exists(int allocationSite){
@@ -98,6 +107,4 @@ public class StaticObjectLifetimeTable {
            return i * (TABLE_PRIME - (key % TABLE_PRIME));
         }
     }
-
-
 }

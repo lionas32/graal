@@ -28,6 +28,7 @@ import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.FREQUENT
 import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.LUDICROUSLY_SLOW_PATH_PROBABILITY;
 import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.probability;
 
+import com.oracle.svm.core.graal.snippets.StaticObjectLifetimeTable;
 import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets.SubstrateAllocationProfilingData;
 import com.oracle.svm.core.jdk.IdentityHashCodeSupport;
 import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
@@ -493,44 +494,38 @@ final class Space {
     private void incrementAgeBits(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
         int allocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
-        int oldAge = maskAge(allocationContext);
+        int oldAge = StaticObjectLifetimeTable.maskAge(allocationContext);
 
-        if(oldAge == 0b111){
+        if(oldAge == StaticObjectLifetimeTable.MAX_AGE){
             return; // Already at maximum age, can't increment
         }
 
         int newAge = oldAge + 1;
 
-        int newAllocationContext = (newAge << 29) | (maskAllocationSite(allocationContext));
+        int newAllocationContext = (newAge << 30) | (StaticObjectLifetimeTable.maskAllocationSite(allocationContext));
         if(!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContext, newAllocationContext)){
             Log.log().string("incrementAgeBits: Wrong allocation context").newline();
         }
     }
 
-    private int maskAllocationSite(int allocationContext){
-        return allocationContext & 0x1fffffff;
-    }
-
-    private int maskAge(int allocationContext) { return allocationContext >>> 29; }
-
     private int readAgeBits(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
-        return ObjectAccess.readInt(obj, hashCodeOffset) >>> 29;
+        return StaticObjectLifetimeTable.maskAge(ObjectAccess.readInt(obj, hashCodeOffset));
     }
 
     private int computeLifetimeBeforePromotion(Object obj){
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
         int allocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
-        if(allocationContext == 0 || !SubstrateAllocationProfilingData.exists(maskAllocationSite(allocationContext))){
+        if(allocationContext == 0 || !SubstrateAllocationProfilingData.exists(StaticObjectLifetimeTable.maskAllocationSite(allocationContext))){
             return 0; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode) we skip over the object
         }
 
         int oldAgeBits = readAgeBits(obj);
         incrementAgeBits(obj);
         int ageBits = readAgeBits(obj);
-        if((ageBits > 0 && ageBits != 0b111) || oldAgeBits == 0b110) {
-            boolean inc = SubstrateAllocationProfilingData.incrementAllocation(maskAllocationSite(allocationContext), ageBits);
-            boolean dec = SubstrateAllocationProfilingData.decrementAllocation(maskAllocationSite(allocationContext), ageBits - 1);
+        if((ageBits > 0 && ageBits != 0b11) || oldAgeBits == 0b10) {
+            boolean inc = SubstrateAllocationProfilingData.incrementAllocation(StaticObjectLifetimeTable.maskAllocationSite(allocationContext), ageBits);
+            boolean dec = SubstrateAllocationProfilingData.decrementAllocation(StaticObjectLifetimeTable.maskAllocationSite(allocationContext), ageBits - 1);
         }
 
         return ObjectAccess.readInt(obj, hashCodeOffset); // Have to compute it again due to possible new age
@@ -549,8 +544,8 @@ final class Space {
         //TODO: Rewrite this to be less dependent on RolpGC
         if (SubstrateOptions.RolpGC.getValue() && HeapOptions.TraceObjectPromotion.getValue() &&
                 allocationContext != 0 && SubstrateAllocationProfilingData.exists(allocationContext)) {
-            int allocationSite = maskAllocationSite(allocationContext);
-            int ageBits = maskAge(allocationContext);
+            int allocationSite = StaticObjectLifetimeTable.maskAllocationSite(allocationContext);
+            int ageBits = StaticObjectLifetimeTable.maskAge(allocationContext);
 
             int[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationSite);
             Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime (binary): ")
@@ -563,11 +558,7 @@ final class Space {
                 Log.log().number(allocations[0], 10, false).string(", ")
                         .number(allocations[1], 10, false).string(", ")
                         .number(allocations[2], 10, false).string(", ")
-                        .number(allocations[3], 10, false).string(", ")
-                        .number(allocations[4], 10, false).string(", ")
-                        .number(allocations[5], 10, false).string(", ")
-                        .number(allocations[6], 10, false).string(", ")
-                        .number(allocations[7], 10, false).string("]");
+                        .number(allocations[3], 10, false).string("]");
             }
             Log.log().string("  epoch: ").number(HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().rawValue(), 10, false)
                     .string("  fromSpace: ").string(originalSpace.getName()).string("  toSpace: ").string(this.getName())
