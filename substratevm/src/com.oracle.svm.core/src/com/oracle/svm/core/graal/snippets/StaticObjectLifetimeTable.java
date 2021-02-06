@@ -59,6 +59,24 @@ public class StaticObjectLifetimeTable {
         return false;
     }
 
+    public static final int averageLifetime(int allocationSite){
+        int[] averageLifetimes = getLifetimesForAllocationSite(allocationSite);
+        if (averageLifetimes == null){
+            return -1;
+        } else {
+            int total = 0;
+            int sumLifetimes = 0;
+            for(int i = 0; i < averageLifetimes.length; i++){
+                sumLifetimes += averageLifetimes[i];
+                total += averageLifetimes[i] * (i+1);
+            }
+            if(sumLifetimes == 0){
+                return -1;
+            }
+            return (total / sumLifetimes) - 1;
+        }
+    }
+
 
     public static final int[] getLifetimesForAllocationSite(int allocationSite){
         allocationSite &= allocationSiteMask;

@@ -83,7 +83,7 @@ final class HeapChunkProvider {
 
     @AlwaysInline("Remove all logging when noopLog is returned by this method")
     private static Log log() {
-        return Log.noopLog();
+        return Log.log();
     }
 
     private static final OutOfMemoryError ALIGNED_OUT_OF_MEMORY_ERROR = new OutOfMemoryError("Could not allocate an aligned heap chunk");

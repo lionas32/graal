@@ -146,7 +146,7 @@ public final class GCImpl implements GC {
 
     /** The body of the VMOperation to do the collection. */
     private boolean collectOperation(GCCause cause, UnsignedWord requestingEpoch) {
-        Log trace = Log.noopLog().string("[GCImpl.collectOperation:").newline()
+        Log trace = Log.log().string("[GCImpl.collectOperation:").newline()
                         .string("  epoch: ").unsigned(getCollectionEpoch())
                         .string("  cause: ").string(cause.getName())
                         .string("  requestingEpoch: ").unsigned(requestingEpoch)

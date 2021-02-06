@@ -24,12 +24,7 @@
  */
 package org.graalvm.compiler.replacements;
 
-import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.FAST_PATH_PROBABILITY;
-import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.SLOW_PATH_PROBABILITY;
-import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.probability;
-import static org.graalvm.compiler.replacements.ReplacementsUtil.REPLACEMENTS_ASSERTIONS_ENABLED;
-import static org.graalvm.compiler.replacements.nodes.ExplodeLoopNode.explodeLoop;
-
+import jdk.vm.ci.code.MemoryBarriers;
 import org.graalvm.compiler.nodes.PrefetchAllocateNode;
 import org.graalvm.compiler.nodes.extended.MembarNode;
 import org.graalvm.compiler.nodes.memory.address.OffsetAddressNode;
@@ -41,7 +36,11 @@ import org.graalvm.word.LocationIdentity;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.WordFactory;
 
-import jdk.vm.ci.code.MemoryBarriers;
+import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.FAST_PATH_PROBABILITY;
+import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.SLOW_PATH_PROBABILITY;
+import static org.graalvm.compiler.nodes.extended.BranchProbabilityNode.probability;
+import static org.graalvm.compiler.replacements.ReplacementsUtil.REPLACEMENTS_ASSERTIONS_ENABLED;
+import static org.graalvm.compiler.replacements.nodes.ExplodeLoopNode.explodeLoop;
 
 /**
  * Snippets used for implementing NEW, ANEWARRAY and NEWARRAY.
@@ -65,11 +64,39 @@ public abstract class AllocationSnippets implements Snippets {
             result = formatObject(hub, prototypeMarkWord, size, top, fillContents, emitMemoryBarrier, constantSize, profilingData.snippetCounters);
         } else {
             profilingData.snippetCounters.stub.inc();
-            result = callNewInstanceStub(hub);
+            result = callNewInstanceStub(hub, false);
         }
         profileAllocation(profilingData, size);
         return verifyOop(result);
     }
+
+    /** Used for allocating directly in the old generation */
+    protected Object allocateInstanceImpl2(Word hub,
+                    Word prototypeMarkWord,
+                    UnsignedWord size,
+                    boolean fillContents,
+                    boolean emitMemoryBarrier,
+                    boolean constantSize,
+                    AllocationProfilingData profilingData) {
+        Object result;
+        Word tlabInfo = getOldTLAB();
+        Word top = readExtraTlabTop(tlabInfo);
+        Word end = readExtraTlabEnd(tlabInfo);
+        Word newTop = top.add(size);
+        if (useTLAB() && probability(FAST_PATH_PROBABILITY, shouldAllocateInTLAB(size, false)) && probability(FAST_PATH_PROBABILITY, newTop.belowOrEqual(end))) {
+            writeExtraTlabTop(tlabInfo, newTop);
+            emitPrefetchAllocate(newTop, false);
+            result = formatObject(hub, prototypeMarkWord, size, top, fillContents, emitMemoryBarrier, constantSize, profilingData.snippetCounters);
+        } else {
+            profilingData.snippetCounters.stub.inc();
+            result = callNewInstanceStub(hub, true);
+        }
+        profileAllocation(profilingData, size);
+        return verifyOop(result);
+    }
+
+    protected abstract Word getOldTLAB();
+
 
     /**
      * In arrays all non-element content is now part of the object header. Previously in Substrate
@@ -343,11 +370,17 @@ public abstract class AllocationSnippets implements Snippets {
 
     public abstract void writeTlabTop(Word tlabInfo, Word newTop);
 
+    public abstract Word readExtraTlabTop(Word tlabInfo);
+
+    public abstract Word readExtraTlabEnd(Word tlabInfo);
+
+    public abstract void writeExtraTlabTop(Word tlabInfo, Word newTop);
+
     protected abstract int instanceHeaderSize();
 
     public abstract void initializeObjectHeader(Word memory, Word hub, Word prototypeMarkWord, boolean isArray);
 
-    protected abstract Object callNewInstanceStub(Word hub);
+    protected abstract Object callNewInstanceStub(Word hub, boolean forOld);
 
     protected abstract Object callNewArrayStub(Word hub, int length);
 

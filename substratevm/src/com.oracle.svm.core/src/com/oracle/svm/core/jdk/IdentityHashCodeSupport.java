@@ -71,7 +71,7 @@ public final class IdentityHashCodeSupport {
         return newHashCode;
     }
 
-    // Used when running with RolpGC
+    /** Used when running with RolpGC */
     public static int overwriteContextForHashCode(Object obj, int hashCodeOffset, int allocationContext){
         // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();

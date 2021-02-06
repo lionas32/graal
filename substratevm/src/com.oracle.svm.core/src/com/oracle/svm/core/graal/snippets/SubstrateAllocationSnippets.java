@@ -96,7 +96,9 @@ import jdk.vm.ci.meta.ResolvedJavaType;
 public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     public static final LocationIdentity TLAB_TOP_IDENTITY = NamedLocationIdentity.mutable("TLAB.top");
     public static final LocationIdentity TLAB_END_IDENTITY = NamedLocationIdentity.mutable("TLAB.end");
-    public static final Object[] ALLOCATION_LOCATION_IDENTITIES = new Object[]{TLAB_TOP_IDENTITY, TLAB_END_IDENTITY, AllocationCounter.COUNT_FIELD, AllocationCounter.SIZE_FIELD};
+    public static final LocationIdentity EXTRA_TLAB_TOP_IDENTITY = NamedLocationIdentity.mutable("EXTRA_TLAB.top");
+    public static final LocationIdentity EXTRA_TLAB_END_IDENTITY = NamedLocationIdentity.mutable("EXTRA_TLAB.end");
+    public static final Object[] ALLOCATION_LOCATION_IDENTITIES = new Object[]{TLAB_TOP_IDENTITY, TLAB_END_IDENTITY, AllocationCounter.COUNT_FIELD, AllocationCounter.SIZE_FIELD, EXTRA_TLAB_END_IDENTITY, EXTRA_TLAB_TOP_IDENTITY};
 
     private static final SubstrateForeignCallDescriptor NEW_MULTI_ARRAY = SnippetRuntime.findForeignCall(SubstrateAllocationSnippets.class, "newMultiArrayStub", true);
     private static final SubstrateForeignCallDescriptor HUB_ERROR = SnippetRuntime.findForeignCall(SubstrateAllocationSnippets.class, "hubErrorStub", true);
@@ -116,7 +118,15 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                     @ConstantParameter boolean emitMemoryBarrier,
                     @ConstantParameter AllocationProfilingData profilingData) {
         DynamicHub checkedHub = checkHub(hub);
-        Object result = allocateInstanceImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
+        Object result;
+        SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
+        int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
+        int averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+        if(averageLifetime <= 0){
+            result = allocateInstanceImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
+        } else {
+            result = allocateInstanceImpl2(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
+        }
         return piCastToSnippetReplaceeStamp(result);
     }
 
@@ -351,8 +361,8 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     }
 
     @Override
-    protected final Object callNewInstanceStub(Word objectHeader) {
-        return callSlowNewInstance(getSlowNewInstanceStub(), objectHeader);
+    protected final Object callNewInstanceStub(Word objectHeader, boolean forOld) {
+        return callSlowNewInstance(getSlowNewInstanceStub(), objectHeader, forOld);
     }
 
     @Override
@@ -366,7 +376,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     }
 
     @NodeIntrinsic(value = ForeignCallNode.class)
-    private static native Object callSlowNewInstance(@ConstantNodeParameter ForeignCallDescriptor descriptor, Word hub);
+    private static native Object callSlowNewInstance(@ConstantNodeParameter ForeignCallDescriptor descriptor, Word hub, boolean forOld);
 
     @NodeIntrinsic(value = ForeignCallNode.class)
     private static native Object callSlowNewArray(@ConstantNodeParameter ForeignCallDescriptor descriptor, Word hub, int length);
@@ -386,12 +396,12 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             this.allocationSiteCounter = allocationSiteCounter;
         }
 
-        public static final void incrementAllocation(int allocationSite, int lifetime){
-            StaticObjectLifetimeTable.incrementAllocation(allocationSite, lifetime);
+        public static final boolean incrementAllocation(int allocationSite, int lifetime){
+            return StaticObjectLifetimeTable.incrementAllocation(allocationSite, lifetime);
         }
 
-        public static final void decrementAllocation(int allocationSite, int lifetime){
-            StaticObjectLifetimeTable.decrementAllocation(allocationSite, lifetime);
+        public static final boolean decrementAllocation(int allocationSite, int lifetime){
+            return StaticObjectLifetimeTable.decrementAllocation(allocationSite, lifetime);
         }
 
         public static final int[] getLifetimesForAllocationSite(int allocationSite){

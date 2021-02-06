@@ -383,7 +383,7 @@ public class HotSpotAllocationSnippets extends AllocationSnippets {
     }
 
     @Override
-    protected final Object callNewInstanceStub(Word hub) {
+    protected final Object callNewInstanceStub(Word hub, boolean forOld) {
         KlassPointer klassPtr = KlassPointer.fromWord(hub);
         if (useNullAllocationStubs(INJECTED_VMCONFIG)) {
             return nonNullOrDeopt(newInstanceOrNull(NEW_INSTANCE_OR_NULL, klassPtr));
@@ -520,6 +520,13 @@ public class HotSpotAllocationSnippets extends AllocationSnippets {
         return getThread();
     }
 
+
+    /** Shouldn't be used */
+    @Override
+    public Word getOldTLAB() {
+        return getThread();
+    }
+
     private Word getThread() {
         return registerAsWord(threadRegister);
     }
@@ -537,6 +544,21 @@ public class HotSpotAllocationSnippets extends AllocationSnippets {
     @Override
     public final void writeTlabTop(Word thread, Word newTop) {
         HotSpotReplacementsUtil.writeTlabTop(thread, newTop);
+    }
+
+    @Override
+    public final Word readExtraTlabEnd(Word thread) {
+        return null;
+    }
+
+    @Override
+    public final Word readExtraTlabTop(Word thread) {
+        return null;
+    }
+
+    @Override
+    public final void writeExtraTlabTop(Word thread, Word newTop) {
+
     }
 
     @Override

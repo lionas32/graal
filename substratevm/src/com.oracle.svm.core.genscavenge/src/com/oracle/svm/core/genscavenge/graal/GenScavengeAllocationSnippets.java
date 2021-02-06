@@ -125,6 +125,11 @@ final class GenScavengeAllocationSnippets extends SubstrateAllocationSnippets {
     }
 
     @Override
+    public Word getOldTLAB() {
+        return (Word) ThreadLocalAllocation.extraTLAB.getAddress();
+    }
+
+    @Override
     public Word readTlabTop(Word tlabInfo) {
         return ((Descriptor) tlabInfo).getAllocationTop(TLAB_TOP_IDENTITY);
     }
@@ -137,6 +142,21 @@ final class GenScavengeAllocationSnippets extends SubstrateAllocationSnippets {
     @Override
     public void writeTlabTop(Word tlabInfo, Word newTop) {
         ((Descriptor) tlabInfo).setAllocationTop(newTop, TLAB_TOP_IDENTITY);
+    }
+
+    @Override
+    public Word readExtraTlabTop(Word tlabInfo) {
+        return ((Descriptor) tlabInfo).getAllocationTop(EXTRA_TLAB_TOP_IDENTITY);
+    }
+
+    @Override
+    public Word readExtraTlabEnd(Word tlabInfo) {
+        return ((Descriptor) tlabInfo).getAllocationEnd(EXTRA_TLAB_END_IDENTITY);
+    }
+
+    @Override
+    public void writeExtraTlabTop(Word tlabInfo, Word newTop) {
+        ((Descriptor) tlabInfo).setAllocationTop(newTop, EXTRA_TLAB_TOP_IDENTITY);
     }
 
     @Override

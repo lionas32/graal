@@ -207,8 +207,8 @@ final class Space {
      *
      * This is "slow-path" memory allocation.
      */
-    private Pointer allocateMemory(UnsignedWord objectSize) {
-        Log trace = Log.noopLog().string("[Space.allocateMemory:").string("  space: ").string(getName()).string("  size: ").unsigned(objectSize).newline();
+    private Pointer allocateMemory(Object obj, UnsignedWord objectSize) {
+        Log trace = Log.log().string("[Space.allocateMemory: ").object(obj).string("  space: ").string(getName()).string("  size: ").unsigned(objectSize).newline();
         Pointer result = WordFactory.nullPointer();
         /* First try allocating in the last chunk. */
         AlignedHeapChunk.AlignedHeader oldChunk = getLastAlignedHeapChunk();
@@ -299,7 +299,7 @@ final class Space {
         if (SubstrateOptions.MultiThreaded.getValue()) {
             VMThreads.guaranteeOwnsThreadMutex("Trying to append an aligned heap chunk but no mutual exclusion.");
         }
-        Log trace = Log.noopLog().string("[Space.appendAlignedHeapChunk:").newline();
+        Log trace = Log.log().string("[Space.appendAlignedHeapChunk:").newline();
         if (trace.isEnabled()) {
             trace.string("  before space: ").string(getName()).string("  first: ").hex(getFirstAlignedHeapChunk()).string("  last: ").hex(getLastAlignedHeapChunk()).newline();
             trace.string("  before chunk: ").hex(aChunk).string("  .space: ").object(HeapChunk.getSpace(aChunk));
@@ -309,7 +309,7 @@ final class Space {
         getAccounting().noteAlignedHeapChunk(AlignedHeapChunk.getCommittedObjectMemory(aChunk));
         if (trace.isEnabled()) {
             trace.string("  after  space: ").string(getName()).string("  first: ").hex(getFirstAlignedHeapChunk()).string("  last: ").hex(getLastAlignedHeapChunk()).newline();
-            trace.string("  after  chunk: ").hex(aChunk).hex(aChunk).string("  space: ").string(HeapChunk.getSpace(aChunk).getName());
+            trace.string("  after  chunk: ").hex(aChunk).string("  space: ").string(HeapChunk.getSpace(aChunk).getName());
             trace.string("  .previous: ").hex(HeapChunk.getPrevious(aChunk)).string("  .next: ").hex(HeapChunk.getNext(aChunk)).newline();
             trace.string("]").newline();
         }
@@ -529,8 +529,8 @@ final class Space {
         incrementAgeBits(obj);
         int ageBits = readAgeBits(obj);
         if((ageBits > 0 && ageBits != 0b111) || oldAgeBits == 0b110) {
-            SubstrateAllocationProfilingData.incrementAllocation(maskAllocationSite(allocationContext), ageBits);
-            SubstrateAllocationProfilingData.decrementAllocation(maskAllocationSite(allocationContext), ageBits - 1);
+            boolean inc = SubstrateAllocationProfilingData.incrementAllocation(maskAllocationSite(allocationContext), ageBits);
+            boolean dec = SubstrateAllocationProfilingData.decrementAllocation(maskAllocationSite(allocationContext), ageBits - 1);
         }
 
         return ObjectAccess.readInt(obj, hashCodeOffset); // Have to compute it again due to possible new age
@@ -585,7 +585,7 @@ final class Space {
         assert ObjectHeaderImpl.isAlignedObject(originalObj);
 
         UnsignedWord size = LayoutEncoding.getSizeFromObject(originalObj);
-        Pointer copyMemory = allocateMemory(size);
+        Pointer copyMemory = allocateMemory(originalObj, size);
         if (probability(LUDICROUSLY_SLOW_PATH_PROBABILITY, copyMemory.isNull())) {
             Log failureLog = Log.log().string("[! Space.copyAlignedObject:").indent(true);
             failureLog.string("  failure to allocate ").unsigned(size).string(" bytes").newline();
@@ -655,7 +655,7 @@ final class Space {
 
     private AlignedHeapChunk.AlignedHeader requestAlignedHeapChunk() {
         assert VMOperation.isGCInProgress() : "Should only be called from the collector.";
-        Log trace = Log.noopLog().string("[Space.requestAlignedHeapChunk:").string("  space: ").string(getName()).newline();
+        Log trace = Log.log().string("[Space.requestAlignedHeapChunk:").string("  space: ").string(getName()).newline();
         AlignedHeapChunk.AlignedHeader aChunk = HeapImpl.getChunkProvider().produceAlignedChunk();
         trace.string("  aChunk: ").hex(aChunk);
         if (aChunk.isNonNull()) {
