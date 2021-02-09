@@ -1,5 +1,7 @@
 package com.oracle.svm.core.graal.snippets;
 
+import java.util.Arrays;
+
 public class StaticObjectLifetimeTable {
     public static final int allocationSiteMask = 0x3fffffff;
     public static final int MAX_AGE = 0b11;
@@ -26,6 +28,13 @@ public class StaticObjectLifetimeTable {
             }
         }
         return false;
+    }
+
+    // Ran every 16 epoch to ensure freshness
+    public static final void clearTable(){
+        for(int i = 0; i < STATIC_SIZE; i++){
+            Arrays.fill(allocationSiteCounters[i], 0);
+        }
     }
 
     public static final int maskAge(int allocationContext){

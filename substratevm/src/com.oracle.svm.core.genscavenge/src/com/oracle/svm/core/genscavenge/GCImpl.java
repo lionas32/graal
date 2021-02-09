@@ -31,6 +31,7 @@ import static com.oracle.svm.core.snippets.KnownIntrinsics.readReturnAddress;
 
 import java.lang.ref.Reference;
 
+import com.oracle.svm.core.graal.snippets.StaticObjectLifetimeTable;
 import org.graalvm.compiler.api.replacements.Fold;
 import org.graalvm.nativeimage.CurrentIsolate;
 import org.graalvm.nativeimage.IsolateThread;
@@ -154,12 +155,19 @@ public final class GCImpl implements GC {
         assert VMOperation.isGCInProgress() : "Collection should be a VMOperation.";
         assert getCollectionEpoch().equal(requestingEpoch);
 
+
         timers.mutator.close();
         startCollectionOrExit();
 
         timers.resetAllExceptMutator();
         collectionEpoch = collectionEpoch.add(1);
 
+        if(SubstrateOptions.RolpGC.getValue()){
+            trace.string("  clearing table on epoch: ").unsigned(collectionEpoch);
+            if(collectionEpoch.unsignedRemainder(16).equal(0) && collectionEpoch.notEqual(0)){
+                StaticObjectLifetimeTable.clearTable();
+            }
+        }
         /* Flush chunks from thread-local lists to global lists. */
         ThreadLocalAllocation.disableAndFlushForAllThreads();
 
