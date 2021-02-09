@@ -71,7 +71,7 @@ public abstract class AllocationSnippets implements Snippets {
     }
 
     /** Used for allocating directly in the old generation */
-    protected Object allocateInstanceImpl2(Word hub,
+    protected Object allocateInstanceOldImpl(Word hub,
                     Word prototypeMarkWord,
                     UnsignedWord size,
                     boolean fillContents,
@@ -133,7 +133,42 @@ public abstract class AllocationSnippets implements Snippets {
                             profilingData.snippetCounters);
         } else {
             profilingData.snippetCounters.stub.inc();
-            result = callNewArrayStub(hub, length);
+            result = callNewArrayStub(hub, length, false);
+        }
+        profileAllocation(profilingData, allocationSize);
+        return verifyOop(result);
+    }
+
+    /** Used for allocating directly in the old generation */
+    protected Object allocateArrayOldImpl(Word hub,
+                    Word prototypeMarkWord,
+                    int length,
+                    int arrayBaseOffset,
+                    int log2ElementSize,
+                    boolean fillContents,
+                    boolean emitMemoryBarrier,
+                    boolean maybeUnroll,
+                    boolean supportsBulkZeroing,
+                                       AllocationProfilingData profilingData) {
+        Word thread = getOldTLAB();
+        Word top = readExtraTlabTop(thread);
+        Word end = readExtraTlabEnd(thread);
+        ReplacementsUtil.dynamicAssert(end.subtract(top).belowOrEqual(Integer.MAX_VALUE), "TLAB is too large");
+
+        // A negative array length will result in an array size larger than the largest possible
+        // TLAB. Therefore, this case will always end up in the stub call.
+        UnsignedWord allocationSize = arrayAllocationSize(length, arrayBaseOffset, log2ElementSize);
+        Word newTop = top.add(allocationSize);
+
+        Object result;
+        if (useTLAB() && probability(FAST_PATH_PROBABILITY, shouldAllocateInTLAB(allocationSize, true)) && probability(FAST_PATH_PROBABILITY, newTop.belowOrEqual(end))) {
+            writeExtraTlabTop(thread, newTop);
+            emitPrefetchAllocate(newTop, true);
+            result = formatArray(hub, prototypeMarkWord, allocationSize, length, top, fillContents, arrayBaseOffset, emitMemoryBarrier, maybeUnroll, supportsBulkZeroing,
+                    profilingData.snippetCounters);
+        } else {
+            profilingData.snippetCounters.stub.inc();
+            result = callNewArrayStub(hub, length, true);
         }
         profileAllocation(profilingData, allocationSize);
         return verifyOop(result);
@@ -382,7 +417,7 @@ public abstract class AllocationSnippets implements Snippets {
 
     protected abstract Object callNewInstanceStub(Word hub, boolean forOld);
 
-    protected abstract Object callNewArrayStub(Word hub, int length);
+    protected abstract Object callNewArrayStub(Word hub, int length, boolean forOld);
 
     protected abstract Object callNewMultiArrayStub(Word hub, int rank, Word dims);
 

@@ -69,6 +69,9 @@ public class StaticObjectLifetimeTable {
     }
 
     public static final int averageLifetime(int allocationSite){
+        if(objectCounter == 0){
+            return -1; // This seems sketch, but i don't want to compute stuff if RolpGC is not supposed to be run
+        }
         int[] averageLifetimes = getLifetimesForAllocationSite(allocationSite);
         if (averageLifetimes == null){
             return -1;

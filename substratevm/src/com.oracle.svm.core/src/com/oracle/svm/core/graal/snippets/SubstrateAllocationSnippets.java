@@ -125,7 +125,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         if(averageLifetime <= 0){
             result = allocateInstanceImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
         } else {
-            result = allocateInstanceImpl2(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
+            result = allocateInstanceOldImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
         }
         return piCastToSnippetReplaceeStamp(result);
     }
@@ -141,8 +141,17 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                     @ConstantParameter boolean supportsBulkZeroing,
                     @ConstantParameter AllocationProfilingData profilingData) {
         DynamicHub checkedHub = checkHub(hub);
-        Object result = allocateArrayImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
-                        emitMemoryBarrier, maybeUnroll, supportsBulkZeroing, profilingData);
+        Object result;
+        SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
+        int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
+        int averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+        if(averageLifetime <= 0){
+            result = allocateArrayImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
+                    emitMemoryBarrier, maybeUnroll, supportsBulkZeroing, profilingData);
+        } else {
+            result = allocateArrayOldImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
+                    emitMemoryBarrier, maybeUnroll, supportsBulkZeroing, profilingData);
+        }
         return piArrayCastToSnippetReplaceeStamp(result, length);
     }
 
@@ -366,8 +375,8 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     }
 
     @Override
-    protected final Object callNewArrayStub(Word objectHeader, int length) {
-        return callSlowNewArray(getSlowNewArrayStub(), objectHeader, length);
+    protected final Object callNewArrayStub(Word objectHeader, int length, boolean forOld) {
+        return callSlowNewArray(getSlowNewArrayStub(), objectHeader, length, forOld);
     }
 
     @Override
@@ -379,7 +388,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     private static native Object callSlowNewInstance(@ConstantNodeParameter ForeignCallDescriptor descriptor, Word hub, boolean forOld);
 
     @NodeIntrinsic(value = ForeignCallNode.class)
-    private static native Object callSlowNewArray(@ConstantNodeParameter ForeignCallDescriptor descriptor, Word hub, int length);
+    private static native Object callSlowNewArray(@ConstantNodeParameter ForeignCallDescriptor descriptor, Word hub, int length, boolean forOld);
 
     @NodeIntrinsic(value = ForeignCallNode.class)
     private static native Object callNewMultiArray(@ConstantNodeParameter ForeignCallDescriptor descriptor, Word hub, int rank, Word dimensions);

@@ -155,7 +155,7 @@ public final class ThreadLocalAllocation {
 
     @RestrictHeapAccess(access = RestrictHeapAccess.Access.NO_ALLOCATION, reason = "Must not allocate in the implementation of allocation.")
     private static Object slowPathNewInstanceWithoutAllocating(DynamicHub hub, boolean forOld) {
-        ThreadLocalAllocation.Descriptor tlab = ThreadLocalAllocation.regularTLAB.getAddress();
+//        ThreadLocalAllocation.Descriptor tlab = ThreadLocalAllocation.regularTLAB.getAddress();
         if(forOld){
             return allocateNewInstance(hub, extraTLAB.getAddress(), true, forOld);
         } else {
@@ -212,14 +212,14 @@ public final class ThreadLocalAllocation {
     }
 
     @SubstrateForeignCallTarget(stubCallingConvention = false)
-    private static Object slowPathNewArray(Word objectHeader, int length) {
+    private static Object slowPathNewArray(Word objectHeader, int length, boolean forOld) {
         if (length < 0) { // must be done before allocation-restricted code
             throw new NegativeArraySizeException();
         }
 
         UnsignedWord gcEpoch = HeapImpl.getHeapImpl().getGCImpl().possibleCollectionPrologue();
         DynamicHub hub = ObjectHeaderImpl.getObjectHeaderImpl().dynamicHubFromObjectHeader(objectHeader);
-        Object result = slowPathNewArrayWithoutAllocating(hub, length);
+        Object result = slowPathNewArrayWithoutAllocating(hub, length, forOld);
         /* If a collection happened, do follow-up tasks now that allocation, etc., is allowed. */
         HeapImpl.getHeapImpl().getGCImpl().possibleCollectionEpilogue(gcEpoch);
         runSlowPathHooks();
@@ -227,9 +227,13 @@ public final class ThreadLocalAllocation {
     }
 
     @RestrictHeapAccess(access = RestrictHeapAccess.Access.NO_ALLOCATION, reason = "Must not allocate in the implementation of allocation.")
-    private static Object slowPathNewArrayWithoutAllocating(DynamicHub hub, int length) {
-        ThreadLocalAllocation.Descriptor tlab = ThreadLocalAllocation.regularTLAB.getAddress();
-        return allocateNewArray(hub, length, tlab, false, false);
+    private static Object slowPathNewArrayWithoutAllocating(DynamicHub hub, int length, boolean forOld) {
+//        ThreadLocalAllocation.Descriptor tlab = ThreadLocalAllocation.regularTLAB.getAddress();
+        if(forOld){
+            return allocateNewArray(hub, length, extraTLAB.getAddress(), true, forOld);
+        } else {
+            return allocateNewArray(hub, length, regularTLAB.getAddress(), false, forOld);
+        }
     }
 
     private static Object allocateNewArray(DynamicHub hub, int length, ThreadLocalAllocation.Descriptor tlab, boolean rememberedSet, boolean forOld) {
@@ -259,8 +263,8 @@ public final class ThreadLocalAllocation {
                 result = allocateLargeArray(hub, length, size, uChunk, tlab, rememberedSet);
             } else {
                 /* Small arrays go into the regular aligned chunk. */
-                AlignedHeader newChunk = prepareNewAllocationChunk(tlab, false);
-                result = allocateSmallArray(hub, length, size, tlab, rememberedSet, newChunk);
+                AlignedHeader newChunk = prepareNewAllocationChunk(tlab, forOld);
+                result = allocateSmallArray(hub, length, size, tlab, rememberedSet, newChunk, forOld);
             }
             log().string("  ThreadLocalAllocation.allocateNewArray returns ").object(result).string(" .. ").hex(LayoutEncoding.getObjectEnd(result)).string("]").newline();
             return result;
@@ -270,10 +274,10 @@ public final class ThreadLocalAllocation {
     }
 
     @Uninterruptible(reason = "Holds uninitialized memory, modifies TLAB")
-    private static Object allocateSmallArray(DynamicHub hub, int length, UnsignedWord size, ThreadLocalAllocation.Descriptor tlab, boolean rememberedSet, AlignedHeader newChunk) {
-        registerNewAllocationChunk(tlab, newChunk, false);
+    private static Object allocateSmallArray(DynamicHub hub, int length, UnsignedWord size, ThreadLocalAllocation.Descriptor tlab, boolean rememberedSet, AlignedHeader newChunk, boolean forOld) {
+        registerNewAllocationChunk(tlab, newChunk, forOld);
 
-        Pointer memory = allocateMemory(tlab, size, false);
+        Pointer memory = allocateMemory(tlab, size, forOld);
         assert memory.isNonNull();
 
         /* Install the DynamicHub and length, and zero the elements. */
