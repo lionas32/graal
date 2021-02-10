@@ -239,7 +239,7 @@ public final class ThreadLocalAllocation {
     private static Object allocateNewArray(DynamicHub hub, int length, ThreadLocalAllocation.Descriptor tlab, boolean rememberedSet, boolean forOld) {
         DeoptTester.disableDeoptTesting();
         try {
-            log().string("[ThreadLocalAllocation.allocateNewArray: ").string(DynamicHub.toClass(hub).getName()).string("  length ").signed(length).string("  in tlab ").hex(tlab).newline();
+            log().string("[ThreadLocalAllocation.allocateNewArray: ").string(DynamicHub.toClass(hub).getName()).string("  length ").signed(length).string("  in tlab ").hex(tlab).string(" forOld: ").bool(forOld).newline();
 
             HeapImpl.exitIfAllocationDisallowed("Heap.allocateNewArray", DynamicHub.toClass(hub).getName());
 
