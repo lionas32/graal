@@ -119,9 +119,14 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                     @ConstantParameter AllocationProfilingData profilingData) {
         DynamicHub checkedHub = checkHub(hub);
         Object result;
-        SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
-        int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-        int averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+        int averageLifetime = 0;
+        if(profilingData != null){
+            SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
+            if(svmProfilingData.allocationSiteCounter != null){
+                int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
+                averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+            }
+        }
         if(averageLifetime <= 0){
             result = allocateInstanceImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
         } else {
@@ -142,9 +147,14 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                     @ConstantParameter AllocationProfilingData profilingData) {
         DynamicHub checkedHub = checkHub(hub);
         Object result;
-        SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
-        int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-        int averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+        int averageLifetime = 0;
+        if(profilingData != null){
+            SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
+            if(svmProfilingData.allocationSiteCounter != null){
+                int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
+                averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+            }
+        }
         if(averageLifetime <= 0){
             result = allocateArrayImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
                     emitMemoryBarrier, maybeUnroll, supportsBulkZeroing, profilingData);
