@@ -155,19 +155,12 @@ public final class GCImpl implements GC {
         assert VMOperation.isGCInProgress() : "Collection should be a VMOperation.";
         assert getCollectionEpoch().equal(requestingEpoch);
 
-
         timers.mutator.close();
         startCollectionOrExit();
 
         timers.resetAllExceptMutator();
         collectionEpoch = collectionEpoch.add(1);
 
-        if(SubstrateOptions.RolpGC.getValue()){
-            trace.string("  clearing table on epoch: ").unsigned(collectionEpoch);
-            if(collectionEpoch.unsignedRemainder(16).equal(0) && collectionEpoch.notEqual(0)){
-                StaticObjectLifetimeTable.clearTable();
-            }
-        }
         /* Flush chunks from thread-local lists to global lists. */
         ThreadLocalAllocation.disableAndFlushForAllThreads();
 

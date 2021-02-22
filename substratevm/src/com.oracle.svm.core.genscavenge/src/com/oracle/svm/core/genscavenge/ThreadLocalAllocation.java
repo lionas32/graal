@@ -116,7 +116,7 @@ public final class ThreadLocalAllocation {
     /** TLAB for regular allocations. */
     public static final FastThreadLocalBytes<Descriptor> regularTLAB = FastThreadLocalFactory.createBytes(ThreadLocalAllocation::getRegularTLABSize).setMaxOffset(FastThreadLocal.BYTE_OFFSET);
 
-    /** TLAB for other allocations. */
+    /** TLAB for old-gen allocations. */
     public static final FastThreadLocalBytes<Descriptor> extraTLAB = FastThreadLocalFactory.createBytes(ThreadLocalAllocation::getRegularTLABSize).setMaxOffset(FastThreadLocal.BYTE_OFFSET);
 
     /** A thread-local free list of aligned chunks. */
@@ -129,7 +129,7 @@ public final class ThreadLocalAllocation {
 
     @Fold
     static Log log() {
-        return Log.log();
+        return Log.noopLog();
     }
 
     @Platforms(Platform.HOSTED_ONLY.class)
@@ -139,6 +139,9 @@ public final class ThreadLocalAllocation {
 
     @SubstrateForeignCallTarget(stubCallingConvention = false)
     private static Object slowPathNewInstance(Word objectHeader, boolean forOld) {
+        if(forOld && !SubstrateOptions.RolpGC.getValue()){
+            throw new RuntimeException("Passed in forOld without -R:+RolpGC");
+        }
         DynamicHub hub = ObjectHeaderImpl.getObjectHeaderImpl().dynamicHubFromObjectHeader(objectHeader);
         UnsignedWord gcEpoch = HeapImpl.getHeapImpl().getGCImpl().possibleCollectionPrologue();
         Object result = slowPathNewInstanceWithoutAllocating(hub, forOld);
@@ -155,13 +158,11 @@ public final class ThreadLocalAllocation {
 
     @RestrictHeapAccess(access = RestrictHeapAccess.Access.NO_ALLOCATION, reason = "Must not allocate in the implementation of allocation.")
     private static Object slowPathNewInstanceWithoutAllocating(DynamicHub hub, boolean forOld) {
-//        ThreadLocalAllocation.Descriptor tlab = ThreadLocalAllocation.regularTLAB.getAddress();
         if(forOld){
-            return allocateNewInstance(hub, extraTLAB.getAddress(), true, forOld);
+            return allocateNewInstance(hub, extraTLAB.getAddress(), false, forOld);
         } else {
             return allocateNewInstance(hub, regularTLAB.getAddress(), false, forOld);
         }
-//        return allocateNewInstance(hub, tlab, false, forOld);
     }
 
     static Object allocateNewInstance(DynamicHub hub, ThreadLocalAllocation.Descriptor tlab, boolean rememberedSet, boolean forOld) {
@@ -215,6 +216,10 @@ public final class ThreadLocalAllocation {
     private static Object slowPathNewArray(Word objectHeader, int length, boolean forOld) {
         if (length < 0) { // must be done before allocation-restricted code
             throw new NegativeArraySizeException();
+        }
+
+        if(forOld && !SubstrateOptions.RolpGC.getValue()){
+            throw new RuntimeException("Passed in forOld without -R:+RolpGC");
         }
 
         UnsignedWord gcEpoch = HeapImpl.getHeapImpl().getGCImpl().possibleCollectionPrologue();
@@ -347,7 +352,9 @@ public final class ThreadLocalAllocation {
 
     static void disableAndFlushForThread(IsolateThread vmThread) {
         retireToSpace(regularTLAB.getAddress(vmThread), HeapImpl.getHeapImpl().getAllocationSpace(), false);
-        retireToSpace(extraTLAB.getAddress(vmThread), HeapImpl.getHeapImpl().getOldGeneration().getFromSpace(), true);
+        if(SubstrateOptions.RolpGC.getValue()){
+            retireToSpace(extraTLAB.getAddress(vmThread), HeapImpl.getHeapImpl().getOldGeneration().getFromSpace(), true);
+        }
         AlignedHeader alignedChunk;
         while ((alignedChunk = popFromThreadLocalFreeList(vmThread)).isNonNull()) {
             HeapImpl.getChunkProvider().consumeAlignedChunk(alignedChunk);
@@ -363,6 +370,7 @@ public final class ThreadLocalAllocation {
             VMError.guarantee(VMThreads.nextThread(thread).isNull(), "Other isolate threads are still active");
         }
         freeHeapChunks(regularTLAB.getAddress(thread));
+        freeHeapChunks(extraTLAB.getAddress(thread));
         HeapChunkProvider.freeAlignedChunkList(freeList.get());
     }
 
@@ -374,13 +382,16 @@ public final class ThreadLocalAllocation {
 
     static void suspendInCurrentThread() {
         retireCurrentAllocationChunk(regularTLAB.getAddress(), false);
-        retireCurrentAllocationChunk(extraTLAB.getAddress(), true);
+        if(SubstrateOptions.RolpGC.getValue()){
+            retireCurrentAllocationChunk(extraTLAB.getAddress(), true);
+        }
     }
 
     static void resumeInCurrentThread() {
         resumeAllocationInCurrentChunk(regularTLAB.getAddress(), false);
-        resumeAllocationInCurrentChunk(extraTLAB.getAddress(), true);
-
+        if(SubstrateOptions.RolpGC.getValue()){
+            resumeAllocationInCurrentChunk(extraTLAB.getAddress(), true);
+        }
     }
 
     static void retireToSpace(Descriptor tlab, Space space, boolean forOld) {
@@ -445,7 +456,11 @@ public final class ThreadLocalAllocation {
 
         AlignedHeader newChunk = popFromThreadLocalFreeList(CurrentIsolate.getCurrentThread());
         if (newChunk.isNull()) {
-            newChunk = HeapImpl.getChunkProvider().produceAlignedChunk();
+            if(forOld){
+                newChunk = HeapImpl.getChunkProvider().produceAlignedChunk2();
+            } else {
+                newChunk = HeapImpl.getChunkProvider().produceAlignedChunk();
+            }
         }
         return newChunk;
     }
@@ -462,7 +477,7 @@ public final class ThreadLocalAllocation {
     private static void retireCurrentAllocationChunk(Descriptor tlab, boolean forOld) {
         Pointer allocationTop;
         if(forOld){
-             allocationTop = tlab.getAllocationTop(EXTRA_TLAB_TOP_IDENTITY);
+            allocationTop = tlab.getAllocationTop(EXTRA_TLAB_TOP_IDENTITY);
         } else {
             allocationTop = tlab.getAllocationTop(TLAB_TOP_IDENTITY);
         }

@@ -83,7 +83,7 @@ final class HeapChunkProvider {
 
     @AlwaysInline("Remove all logging when noopLog is returned by this method")
     private static Log log() {
-        return Log.log();
+        return Log.noopLog();
     }
 
     private static final OutOfMemoryError ALIGNED_OUT_OF_MEMORY_ERROR = new OutOfMemoryError("Could not allocate an aligned heap chunk");
@@ -118,6 +118,38 @@ final class HeapChunkProvider {
         }
 
         HeapPolicy.youngUsedBytes.addAndGet(chunkSize);
+
+        log().string("  result chunk: ").hex(result).string("  ]").newline();
+        return result;
+    }
+
+    AlignedHeader produceAlignedChunk2() {
+        UnsignedWord chunkSize = HeapPolicy.getAlignedHeapChunkSize();
+        log().string("[HeapChunkProvider.produceAlignedChunk2  chunk size: ").unsigned(chunkSize).newline();
+
+        AlignedHeader result = popUnusedAlignedChunk();
+        log().string("  unused chunk: ").hex(result).newline();
+
+        if (result.isNull()) {
+            /* Unused list was empty, need to allocate memory. */
+            noteFirstAllocationTime();
+            result = (AlignedHeader) CommittedMemoryProvider.get().allocate(chunkSize, HeapPolicy.getAlignedHeapChunkAlignment(), false);
+            if (result.isNull()) {
+                throw ALIGNED_OUT_OF_MEMORY_ERROR;
+            }
+            log().string("  new chunk: ").hex(result).newline();
+
+            initializeChunk(result, chunkSize);
+            resetAlignedHeapChunk(result);
+        }
+        assert HeapChunk.getTopOffset(result).equal(AlignedHeapChunk.getObjectsStartOffset());
+        assert HeapChunk.getEndOffset(result).equal(chunkSize);
+
+        if (HeapPolicy.getZapProducedHeapChunks()) {
+            zap(result, HeapPolicy.getProducedHeapChunkZapWord());
+        }
+
+//        HeapPolicy.youngUsedBytes.addAndGet(chunkSize);
 
         log().string("  result chunk: ").hex(result).string("  ]").newline();
         return result;
