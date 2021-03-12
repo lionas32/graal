@@ -106,7 +106,6 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
     private static final SubstrateForeignCallDescriptor[] FOREIGN_CALLS = new SubstrateForeignCallDescriptor[]{NEW_MULTI_ARRAY, HUB_ERROR, ARRAY_HUB_ERROR};
 
     private static final String RUNTIME_REFLECTION_TYPE_NAME = RuntimeReflection.class.getTypeName();
-
     public static void registerForeignCalls(Providers providers, SubstrateForeignCallsProvider foreignCalls) {
         foreignCalls.register(providers, FOREIGN_CALLS);
     }
@@ -119,15 +118,15 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                     @ConstantParameter AllocationProfilingData profilingData) {
         DynamicHub checkedHub = checkHub(hub);
         Object result;
-        int averageLifetime = 0;
+        boolean allocateInOld = false;
         if(profilingData != null){
             SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
-            if(svmProfilingData.allocationSiteCounter != null){
+            if(svmProfilingData.allocationSiteCounter != null && StaticObjectLifetimeTable.epoch.aboveThan(8)){
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+                allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
             }
         }
-        if(averageLifetime <= 0){
+        if(!allocateInOld){
             result = allocateInstanceImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
         } else {
             result = allocateInstanceOldImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
@@ -147,15 +146,15 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
                     @ConstantParameter AllocationProfilingData profilingData) {
         DynamicHub checkedHub = checkHub(hub);
         Object result;
-        int averageLifetime = 0;
+        boolean allocateInOld = false;
         if(profilingData != null){
             SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
-            if(svmProfilingData.allocationSiteCounter != null){
+            if(svmProfilingData.allocationSiteCounter != null && StaticObjectLifetimeTable.epoch.aboveThan(8)){
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                averageLifetime = allocationSite == 0 ? 0 : StaticObjectLifetimeTable.averageLifetime(allocationSite);
+                allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
             }
         }
-        if(averageLifetime <= 0){
+        if(!allocateInOld){
             result = allocateArrayImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
                     emitMemoryBarrier, maybeUnroll, supportsBulkZeroing, profilingData);
         } else {

@@ -59,5 +59,4 @@ final class DecrementAgeVisitor implements ObjectVisitor {
         StaticObjectLifetimeTable.decrementAllocation(allocationSite, age);
         return true;
     }
-
 }

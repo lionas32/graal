@@ -315,10 +315,16 @@ public final class HeapPolicy {
      */
 
     static final UninterruptibleUtils.AtomicUnsigned youngUsedBytes = new UninterruptibleUtils.AtomicUnsigned();
+    static final UninterruptibleUtils.AtomicUnsigned oldUsedBytes = new UninterruptibleUtils.AtomicUnsigned();
 
     static UnsignedWord getYoungUsedBytes() {
         return youngUsedBytes.get();
     }
+
+    static UnsignedWord getOldUsedBytes() {
+        return oldUsedBytes.get();
+    }
+
 
     private static UnsignedWord getAllocationBeforePhysicalMemorySize() {
         return WordFactory.unsigned(HeapPolicyOptions.AllocationBeforePhysicalMemorySize.getValue());
@@ -362,6 +368,8 @@ public final class HeapPolicy {
         @Override
         public void maybeCauseCollection() {
             if (youngUsedBytes.get().aboveOrEqual(getMaximumYoungGenerationSize())) {
+                GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
+            } else if (SubstrateOptions.RolpGC.getValue() && oldUsedBytes.get().aboveOrEqual(getMaximumHeapSize())){
                 GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
             }
         }

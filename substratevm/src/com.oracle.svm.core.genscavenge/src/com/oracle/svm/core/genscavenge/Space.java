@@ -546,7 +546,6 @@ final class Space {
                 allocationContext != 0 && SubstrateAllocationProfilingData.exists(allocationContext)) {
             int allocationSite = StaticObjectLifetimeTable.maskAllocationSite(allocationContext);
             int ageBits = StaticObjectLifetimeTable.maskAge(allocationContext);
-
             int[] allocations = SubstrateAllocationProfilingData.getLifetimesForAllocationSite(allocationSite);
             Log.log().string("[promoteAlignedObject:").string("  obj: ").object(original).string("  lifetime (binary): ")
                     .number(ageBits, 2, false)

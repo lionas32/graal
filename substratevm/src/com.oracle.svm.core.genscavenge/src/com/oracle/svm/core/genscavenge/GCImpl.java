@@ -161,13 +161,27 @@ public final class GCImpl implements GC {
         timers.resetAllExceptMutator();
         collectionEpoch = collectionEpoch.add(1);
 
+
+
         /* Flush chunks from thread-local lists to global lists. */
         ThreadLocalAllocation.disableAndFlushForAllThreads();
 
         printGCBefore(cause.getName());
         boolean outOfMemory = collectImpl(cause.getName());
         HeapPolicy.youngUsedBytes.set(getAccounting().getYoungChunkBytesAfter());
+        HeapPolicy.oldUsedBytes.set(getAccounting().getOldGenerationAfterChunkBytes());
         printGCAfter(cause.getName());
+
+        if(SubstrateOptions.RolpGC.getValue()){
+            StaticObjectLifetimeTable.epoch = collectionEpoch;
+            if(collectionEpoch.unsignedRemainder(8).equal(0) && collectionEpoch.notEqual(0)){
+                trace.string("  clearing and caching table on epoch: ")
+                        .unsigned(collectionEpoch).string(" time: ")
+                        .unsigned(System.nanoTime()).string(" nanoSeconds").newline();
+                StaticObjectLifetimeTable.cacheTable();
+                StaticObjectLifetimeTable.clearTable();
+            }
+        }
 
         finishCollection();
         timers.mutator.open();

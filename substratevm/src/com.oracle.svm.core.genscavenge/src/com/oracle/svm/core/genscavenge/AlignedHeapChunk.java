@@ -212,7 +212,7 @@ public final class AlignedHeapChunk {
         return HeapChunk.walkObjectsFrom(that, getObjectsStart(that), visitor);
     }
 
-    static boolean walkObjectsForLifetime(AlignedHeader that, ObjectVisitor visitor) {
+    static boolean walkObjectsForLifetime(AlignedHeader that, DecrementAgeVisitor visitor) {
         return HeapChunk.walkObjectsFromForLifetime(that, getObjectsStart(that), visitor);
     }
 

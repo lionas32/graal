@@ -173,6 +173,7 @@ public final class ThreadLocalAllocation {
             HeapImpl.exitIfAllocationDisallowed("ThreadLocalAllocation.allocateNewInstance", DynamicHub.toClass(hub).getName());
 
             // Policy: Possibly collect before this allocation.
+
             HeapImpl.getHeapImpl().getHeapPolicy().getCollectOnAllocationPolicy().maybeCauseCollection();
 
             // On this path allocation failed in the allocation chunk, so refill it.

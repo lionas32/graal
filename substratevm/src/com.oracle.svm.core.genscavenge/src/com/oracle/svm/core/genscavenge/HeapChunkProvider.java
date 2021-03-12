@@ -149,7 +149,7 @@ final class HeapChunkProvider {
             zap(result, HeapPolicy.getProducedHeapChunkZapWord());
         }
 
-//        HeapPolicy.youngUsedBytes.addAndGet(chunkSize);
+        HeapPolicy.oldUsedBytes.addAndGet(chunkSize);
 
         log().string("  result chunk: ").hex(result).string("  ]").newline();
         return result;
@@ -159,7 +159,7 @@ final class HeapChunkProvider {
     void consumeAlignedChunk(AlignedHeader chunk) {
         log().string("[HeapChunkProvider.consumeAlignedChunk  chunk: ").hex(chunk).newline();
         if(SubstrateOptions.RolpGC.getValue()){
-            AlignedHeapChunk.walkObjectsForLifetime(chunk, GCImpl.getGCImpl().decrementAgeVisitor); // For more accurate object lifetime information
+//            AlignedHeapChunk.walkObjectsForLifetime(chunk, GCImpl.getGCImpl().decrementAgeVisitor); // For more accurate object lifetime information
         }
         if (keepAlignedChunk()) {
             cleanAlignedChunk(chunk);

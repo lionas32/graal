@@ -1,5 +1,8 @@
 package com.oracle.svm.core.graal.snippets;
 
+import org.graalvm.word.UnsignedWord;
+import org.graalvm.word.WordFactory;
+
 import java.util.Arrays;
 
 public class StaticObjectLifetimeTable {
@@ -7,11 +10,15 @@ public class StaticObjectLifetimeTable {
     public static final int MAX_AGE = 0b11;
     public static final int STATIC_SIZE = 65536;
     public static final int TABLE_PRIME = 7;
-    //We will now try to track the allocation site of some objects
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] allocationSites = new int[STATIC_SIZE];
-    public static int objectCounter = 0;
+    public static boolean[] allocateInOld = new boolean[STATIC_SIZE];
+
+    public static UnsignedWord epoch = WordFactory.unsigned(0);
+
+    // For testing purposes
+    public static int lastObject;
 
     // Lifetime table
     public static final boolean incrementAllocation(int allocationSite, int lifetime){
@@ -20,7 +27,6 @@ public class StaticObjectLifetimeTable {
             int hash = hash(i, allocationSite);
             if(allocationSites[hash] == 0){
                 allocationSites[hash] = allocationSite;
-                objectCounter += 1;
             }
             if(allocationSites[hash] == allocationSite){
                 allocationSiteCounters[hash][lifetime] += 1;
@@ -30,6 +36,17 @@ public class StaticObjectLifetimeTable {
         return false;
     }
 
+    // cache the distribution (true for old, false for young)
+    public static final void cacheTable(){
+        for(int i = 0; i < STATIC_SIZE; i++){
+            int[] allocations = allocationSiteCounters[i];
+            if(allocations != null){
+                allocateInOld[i] = allocations[0] <  allocations[1] + allocations[2] + allocations[3];
+            } else {
+                allocateInOld[i] = false;
+            }
+        }
+    }
     // Ran every 16 epoch to ensure freshness
     public static final void clearTable(){
         for(int i = 0; i < STATIC_SIZE; i++){
@@ -77,25 +94,6 @@ public class StaticObjectLifetimeTable {
         return false;
     }
 
-    public static final int averageLifetime(int allocationSite){
-        int[] averageLifetimes = getLifetimesForAllocationSite(allocationSite);
-        if (averageLifetimes == null){
-            return -1;
-        } else {
-            int total = 0;
-            int sumLifetimes = 0;
-            for(int i = 0; i < averageLifetimes.length; i++){
-                sumLifetimes += averageLifetimes[i];
-                total += averageLifetimes[i] * (i+1);
-            }
-            if(sumLifetimes == 0){
-                return -1;
-            }
-            return (total / sumLifetimes) - 1;
-        }
-    }
-
-
     public static final int[] getLifetimesForAllocationSite(int allocationSite){
         allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){
@@ -107,6 +105,19 @@ public class StaticObjectLifetimeTable {
             }
         }
         return null;
+    }
+
+    public static final boolean getCachedGeneration(int allocationSite){
+        allocationSite &= allocationSiteMask;
+        for(int i = 0; i < STATIC_SIZE; i++){
+            int hash = hash(i, allocationSite);
+            if(allocationSites[hash] == 0){
+                return false;
+            } else if (allocationSites[hash] == allocationSite){
+                return allocateInOld[hash];
+            }
+        }
+        return false;
     }
 
     public static int hash(int i, int key){
