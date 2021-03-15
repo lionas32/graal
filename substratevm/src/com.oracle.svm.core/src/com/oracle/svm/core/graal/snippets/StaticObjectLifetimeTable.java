@@ -13,22 +13,34 @@ public class StaticObjectLifetimeTable {
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] allocationSites = new int[STATIC_SIZE];
-    public static boolean[] allocateInOld = new boolean[STATIC_SIZE];
+    public static boolean[] allocateInOld = new boolean[STATIC_SIZE]; // For caching decisions
+    public static boolean[] skippableObjects = new boolean[STATIC_SIZE]; // If distribution doesn't change for 2 table clears, don't compute anymore
 
-    public static UnsignedWord epoch = WordFactory.unsigned(0);
+    public static UnsignedWord epoch = WordFactory.unsigned(0); // total GC cycles
 
-    // For testing purposes
-    public static int lastObject;
+    public static int lastSkippableObject;
 
-    // Lifetime table
+    public static final void setSkippableSite(int hash){
+        skippableObjects[hash] = true;
+    }
+
     public static final boolean incrementAllocation(int allocationSite, int lifetime){
         allocationSite &= allocationSiteMask;
+        if(lastSkippableObject == allocationSite){
+            return false;
+        }
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
+            if(allocationSites[hash] == allocationSite){
+                if(skippableObjects[hash]){
+                    lastSkippableObject = allocationSite;
+                    return false;
+                }
+                allocationSiteCounters[hash][lifetime] += 1;
+                return true;
+            }
             if(allocationSites[hash] == 0){
                 allocationSites[hash] = allocationSite;
-            }
-            if(allocationSites[hash] == allocationSite){
                 allocationSiteCounters[hash][lifetime] += 1;
                 return true;
             }
@@ -36,12 +48,46 @@ public class StaticObjectLifetimeTable {
         return false;
     }
 
+    public static final boolean getIsSkippable(int allocationSite) {
+        allocationSite &= allocationSiteMask;
+        if(lastSkippableObject == allocationSite){
+            return true;
+        }
+        for(int i = 0; i < STATIC_SIZE; i++){
+            int hash = hash(i, allocationSite);
+            if(allocationSites[hash] == 0){
+                return true;
+            }
+            if(allocationSites[hash] == allocationSite){
+                if(skippableObjects[hash]){
+                    lastSkippableObject = allocationSite;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     // cache the distribution (true for old, false for young)
     public static final void cacheTable(){
         for(int i = 0; i < STATIC_SIZE; i++){
             int[] allocations = allocationSiteCounters[i];
             if(allocations != null){
-                allocateInOld[i] = allocations[0] <  allocations[1] + allocations[2] + allocations[3];
+                if(skippableObjects[i]){
+                    continue;
+                }
+                boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
+                if(toCache) {
+                    if (allocateInOld[i]) {
+                        setSkippableSite(i); // If already cached, check if we will cache again. If so, skip computations for this object.
+                    } else {
+                        allocateInOld[i] = true;
+                    }
+                } else {
+                    allocateInOld[i] = false;
+                }
             } else {
                 allocateInOld[i] = false;
             }
@@ -66,10 +112,10 @@ public class StaticObjectLifetimeTable {
         allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
-            if(allocationSites[hash] == 0){
-                return false;
-            } else if (allocationSites[hash] == allocationSite) {
+            if (allocationSites[hash] == allocationSite) {
                 return true;
+            } else if (allocationSites[hash] == 0){
+                return false;
             }
         }
         return false;
@@ -79,9 +125,6 @@ public class StaticObjectLifetimeTable {
         allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
-            if(allocationSites[hash] == 0){
-                return false;
-            }
             if(allocationSites[hash] == allocationSite){
                 if(allocationSiteCounters[hash][lifetime] > 0){
                     allocationSiteCounters[hash][lifetime] -= 1;
@@ -89,6 +132,8 @@ public class StaticObjectLifetimeTable {
                 }else{
                     return false; // Can't decrement something of age 0
                 }
+            } else if (allocationSites[hash] == 0){
+                return false;
             }
         }
         return false;
@@ -98,10 +143,11 @@ public class StaticObjectLifetimeTable {
         allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
-            if(allocationSites[hash] == 0){
-                return null;
-            } else if (allocationSites[hash] == allocationSite){
+            if (allocationSites[hash] == allocationSite){
                 return allocationSiteCounters[hash];
+            }
+            if (allocationSites[hash] == 0){
+                return null;
             }
         }
         return null;
@@ -111,10 +157,11 @@ public class StaticObjectLifetimeTable {
         allocationSite &= allocationSiteMask;
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
-            if(allocationSites[hash] == 0){
-                return false;
-            } else if (allocationSites[hash] == allocationSite){
+            if (allocationSites[hash] == allocationSite) {
                 return allocateInOld[hash];
+            }
+            if (allocationSites[hash] == 0){
+                return false;
             }
         }
         return false;
