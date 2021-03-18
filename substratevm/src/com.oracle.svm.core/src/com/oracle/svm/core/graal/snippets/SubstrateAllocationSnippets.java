@@ -119,11 +119,13 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         DynamicHub checkedHub = checkHub(hub);
         Object result;
         boolean allocateInOld = false;
-        if(profilingData != null){
-            SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
-            if(svmProfilingData.allocationSiteCounter != null && StaticObjectLifetimeTable.epoch.aboveThan(8)){
+        if(SubstrateOptions.RolpGC.getValue()){
+            if(profilingData != null){
+                SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
+                if(allocationSite != 0 && StaticObjectLifetimeTable.epoch.aboveThan(8)){
+                    allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
+                }
             }
         }
         if(!allocateInOld){
@@ -147,11 +149,13 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         DynamicHub checkedHub = checkHub(hub);
         Object result;
         boolean allocateInOld = false;
-        if(profilingData != null){
-            SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
-            if(svmProfilingData.allocationSiteCounter != null && StaticObjectLifetimeTable.epoch.aboveThan(8)){
+        if(SubstrateOptions.RolpGC.getValue()){
+            if(profilingData != null){
+                SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
+                if(allocationSite != 0 && StaticObjectLifetimeTable.epoch.aboveThan(8)){
+                    allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
+                }
             }
         }
         if(!allocateInOld){
