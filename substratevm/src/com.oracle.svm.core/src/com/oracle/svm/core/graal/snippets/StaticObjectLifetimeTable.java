@@ -168,10 +168,21 @@ public class StaticObjectLifetimeTable {
     }
 
     public static int hash(int i, int key){
-        if (i == 0){
-            return key % STATIC_SIZE;
-        } else {
-           return i * (TABLE_PRIME - (key % TABLE_PRIME));
+        return (hash(key) + quadProbing(i)) % STATIC_SIZE;
+    }
+
+    public static int quadProbing(int index){
+        if(index == 0){
+            return 0;
         }
+        return index * index;
+    }
+
+    // Based on: https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+    public static int hash(int x) {
+        x = ((x >> 16) ^ x) * 0x45d9f3b;
+        x = ((x >> 16) ^ x) * 0x45d9f3b;
+        x = (x >> 16) ^ x;
+        return x;
     }
 }
