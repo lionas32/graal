@@ -53,7 +53,7 @@ public abstract class ValueNode extends org.graalvm.compiler.graph.Node implemen
      * This kind is guaranteed to be a {@linkplain JavaKind#getStackKind() stack kind}.
      */
     protected Stamp stamp;
-    // TODO: Maybe try to propagate this SubstrateAllocationProfilingData instead
+    /** Allocation site for ROLP */
     int personalAllocationSite;
 
     public ValueNode(NodeClass<? extends ValueNode> c, Stamp stamp) {
