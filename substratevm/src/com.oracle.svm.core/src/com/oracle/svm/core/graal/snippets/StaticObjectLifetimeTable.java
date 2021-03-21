@@ -14,11 +14,15 @@ public class StaticObjectLifetimeTable {
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] allocationSites = new int[STATIC_SIZE];
     public static boolean[] allocateInOld = new boolean[STATIC_SIZE]; // For caching decisions
+    public static int[] youngOrOld = new int[STATIC_SIZE]; // 0 > for old, else young?
     public static boolean[] skippableObjects = new boolean[STATIC_SIZE]; // If distribution doesn't change for 2 table clears, don't compute anymore
 
     public static UnsignedWord epoch = WordFactory.unsigned(0); // total GC cycles
 
     public static int lastSkippableObject;
+
+    // for testing purposes
+    public static int lastObjectSeen = 0;
 
     public static final void setSkippableSite(int hash){
         skippableObjects[hash] = true;
@@ -80,17 +84,24 @@ public class StaticObjectLifetimeTable {
                 }
                 boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
                 if(toCache) {
-                    if (allocateInOld[i]) {
+                    if (youngOrOld[i] == 1) {
                         setSkippableSite(i); // If already cached, check if we will cache again. If so, skip computations for this object.
                     } else {
-                        allocateInOld[i] = true;
+//                        allocateInOld[i] = true;
+                        youngOrOld[i] += 1;
                     }
                 } else {
-                    allocateInOld[i] = false;
+                    if(youngOrOld[i] == 1 || youngOrOld[i] == -1){
+                        setSkippableSite(i);
+                    } else {
+                        youngOrOld[i] -= 1;
+//                        allocateInOld[i] = false;
+                    }
                 }
-            } else {
-                allocateInOld[i] = false;
             }
+//            else {
+//                allocateInOld[i] = false;
+//            }
         }
     }
     // Ran every 16 epoch to ensure freshness
@@ -158,7 +169,7 @@ public class StaticObjectLifetimeTable {
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
             if (allocationSites[hash] == allocationSite) {
-                return allocateInOld[hash];
+                return youngOrOld[hash] > 0;
             }
             if (allocationSites[hash] == 0){
                 return false;
