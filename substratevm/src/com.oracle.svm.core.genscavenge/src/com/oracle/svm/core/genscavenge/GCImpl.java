@@ -104,6 +104,8 @@ public final class GCImpl implements GC {
     private final RuntimeCodeCacheCleaner runtimeCodeCacheCleaner = new RuntimeCodeCacheCleaner();
 
     public final DecrementAgeVisitor decrementAgeVisitor = new DecrementAgeVisitor();
+    public final CountObjectsVisitor countObjectsBeforeGCVisitor = new CountObjectsVisitor();
+    public final CountObjectsVisitor countObjectsAfterGCVisitor = new CountObjectsVisitor();
 
     private final Accounting accounting = new Accounting();
     private final Timers timers = new Timers();
@@ -161,16 +163,54 @@ public final class GCImpl implements GC {
         timers.resetAllExceptMutator();
         collectionEpoch = collectionEpoch.add(1);
 
-
+        if(SubstrateOptions.SurvivalRate.getValue()){
+            HeapImpl.getHeapImpl().walkCollectedHeapObjects(countObjectsBeforeGCVisitor);
+        }
 
         /* Flush chunks from thread-local lists to global lists. */
         ThreadLocalAllocation.disableAndFlushForAllThreads();
 
         printGCBefore(cause.getName());
+//
+//        if(SubstrateOptions.RolpGC.getValue()){
+//            for(int i = 0; i < StaticObjectLifetimeTable.allocationSites.length; i++){
+//                if(StaticObjectLifetimeTable.allocationSites[i] != 0){
+//                    int[] allocations = StaticObjectLifetimeTable.allocationSiteCounters[i];
+//                    trace.string(" distribution (before gc): [").number(allocations[0], 10, false).string(", ")
+//                            .number(allocations[1], 10, false).string(", ")
+//                            .number(allocations[2], 10, false).string(", ")
+//                            .number(allocations[3], 10, false).string("]")
+//                            .newline();
+//                }
+//            }
+//        }
+
         boolean outOfMemory = collectImpl(cause.getName());
         HeapPolicy.youngUsedBytes.set(getAccounting().getYoungChunkBytesAfter());
         HeapPolicy.oldUsedBytes.set(getAccounting().getOldGenerationAfterChunkBytes());
         printGCAfter(cause.getName());
+
+        if(SubstrateOptions.SurvivalRate.getValue()){
+            HeapImpl.getHeapImpl().walkCollectedHeapObjects(countObjectsAfterGCVisitor);
+            trace.string(" survival rate (approximate) ")
+                    .rational(countObjectsAfterGCVisitor.objectCount, countObjectsBeforeGCVisitor.objectCount, 2)
+                    .newline();
+            countObjectsBeforeGCVisitor.objectCount = 0;
+            countObjectsAfterGCVisitor.objectCount = 0;
+        }
+
+//        if(SubstrateOptions.RolpGC.getValue()){
+//            for(int i = 0; i < StaticObjectLifetimeTable.allocationSites.length; i++){
+//                if(StaticObjectLifetimeTable.allocationSites[i] != 0){
+//                    int[] allocations = StaticObjectLifetimeTable.allocationSiteCounters[i];
+//                    trace.string(" distribution (after gc): [").number(allocations[0], 10, false).string(", ")
+//                            .number(allocations[1], 10, false).string(", ")
+//                            .number(allocations[2], 10, false).string(", ")
+//                            .number(allocations[3], 10, false).string("]")
+//                            .newline();
+//                }
+//            }
+//        }
 
         if(SubstrateOptions.RolpGC.getValue()){
             StaticObjectLifetimeTable.epoch = collectionEpoch;

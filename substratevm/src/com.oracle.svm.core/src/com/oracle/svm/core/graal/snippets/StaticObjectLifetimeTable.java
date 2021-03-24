@@ -9,20 +9,68 @@ public class StaticObjectLifetimeTable {
     public static final int allocationSiteMask = 0x3fffffff;
     public static final int MAX_AGE = 0b11;
     public static final int STATIC_SIZE = 65536;
-    public static final int TABLE_PRIME = 7;
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] allocationSites = new int[STATIC_SIZE];
-    public static boolean[] allocateInOld = new boolean[STATIC_SIZE]; // For caching decisions
     public static int[] youngOrOld = new int[STATIC_SIZE]; // 0 > for old, else young?
-    public static boolean[] skippableObjects = new boolean[STATIC_SIZE]; // If distribution doesn't change for 2 table clears, don't compute anymore
+
+    /**
+     * If distribution doesn't change for 2 table clears, don't compute anymore.
+     * This could maybe be changed to a list of allocations sites? (such that we know which objects we are skipping).
+     */
+    public static boolean[] skippableObjects = new boolean[STATIC_SIZE];
+    public static int lastSkippableObject; // To avoid looking up in the table.
+
+    // Variables to track the survivor rate
+    public static int aliveBeforeGC = 0;
+    public static int aliveAfterGC = 0;
+    public static int aliveBefore0thIndex = 0;
+    public static int aliveBefore2stIndex = 0;
+    public static int aliveAfter0thIndex = 0;
+    public static boolean start = true;
+
 
     public static UnsignedWord epoch = WordFactory.unsigned(0); // total GC cycles
 
-    public static int lastSkippableObject;
 
-    // for testing purposes
-    public static int lastObjectSeen = 0;
+    // methods for survivor rate
+    public static final void calculateBefore(){
+        if(start){
+            for(int i = 0; i < allocationSiteCounters.length; i++){
+                aliveBeforeGC += allocationSiteCounters[i][0];
+            }
+        } else {
+            aliveBeforeGC = 0;
+            aliveBefore0thIndex = 0;
+            aliveBefore2stIndex = 0;
+            for(int i = 0; i < allocationSiteCounters.length; i++) {
+                aliveBeforeGC += allocationSiteCounters[i][0];
+                aliveBefore0thIndex += allocationSiteCounters[i][0];
+                aliveBefore2stIndex += allocationSiteCounters[i][2];
+            }
+            aliveBeforeGC = (aliveBeforeGC - aliveAfter0thIndex) + aliveAfterGC;
+        }
+    }
+
+    public static final void calculateAfter(){
+        if(start){
+            for(int i = 0; i < allocationSiteCounters.length; i++){
+                aliveAfterGC += allocationSiteCounters[i][0];
+            }
+            aliveAfter0thIndex = aliveAfterGC;
+            aliveAfterGC = aliveBeforeGC - aliveAfterGC;
+            start = false;
+        } else {
+            int aliveAfter0thIndex = 0;
+            int aliveAfter2thIndex = 0;
+            for(int[] i : allocationSiteCounters){
+                aliveAfter0thIndex += i[0];
+                aliveAfter2thIndex += i[2];
+            }
+
+            aliveAfterGC = Math.abs(aliveBefore0thIndex -  aliveAfter0thIndex) + Math.abs(aliveBefore2stIndex -  aliveAfter2thIndex);
+        }
+    }
 
     public static final void setSkippableSite(int hash){
         skippableObjects[hash] = true;
@@ -74,7 +122,11 @@ public class StaticObjectLifetimeTable {
         return true;
     }
 
-    // cache the distribution (true for old, false for young)
+    /**
+     * Cache the distribution (1 for old, -1 for young)
+     * It's possible I need to change the 'toCache' condition. (promotions/allocations > 0.5)
+     * Also not sure about the last else-branch.
+     */
     public static final void cacheTable(){
         for(int i = 0; i < STATIC_SIZE; i++){
             int[] allocations = allocationSiteCounters[i];
@@ -85,9 +137,8 @@ public class StaticObjectLifetimeTable {
                 boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
                 if(toCache) {
                     if (youngOrOld[i] == 1) {
-                        setSkippableSite(i); // If already cached, check if we will cache again. If so, skip computations for this object.
+                        setSkippableSite(i);
                     } else {
-//                        allocateInOld[i] = true;
                         youngOrOld[i] += 1;
                     }
                 } else {
@@ -95,16 +146,13 @@ public class StaticObjectLifetimeTable {
                         setSkippableSite(i);
                     } else {
                         youngOrOld[i] -= 1;
-//                        allocateInOld[i] = false;
                     }
                 }
             }
-//            else {
-//                allocateInOld[i] = false;
-//            }
         }
     }
-    // Ran every 16 epoch to ensure freshness
+
+    // Ran every X epoch to ensure freshness
     public static final void clearTable(){
         for(int i = 0; i < STATIC_SIZE; i++){
             Arrays.fill(allocationSiteCounters[i], 0);
