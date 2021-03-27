@@ -180,20 +180,8 @@ public final class ThreadLocalAllocation {
             AlignedHeader newChunk = prepareNewAllocationChunk(tlab, forOld);
 
             UnsignedWord size = LayoutEncoding.getInstanceSize(hub.getLayoutEncoding());
-            Space space = newChunk.getSpace();
-            if (space == null){
-                log().string("after prepareNewAllocationChunk space name is: ").string("null!").newline();
-            } else {
-                log().string("after prepareNewAllocationChunk space name is: ").string(newChunk.getSpace().getName()).newline();
-            }
 
             Object result = allocateNewInstanceUninterruptibly(hub, tlab, rememberedSet, size, newChunk, forOld);
-            space = newChunk.getSpace();
-            if (space == null){
-                log().string("after allocateNewInstanceUninterruptibly space name is: ").string("null!").newline();
-            } else {
-                log().string("after allocateNewInstanceUninterruptibly space name is: ").string(newChunk.getSpace().getName()).newline();
-            }
 
             log().string("  ThreadLocalAllocation.allocateNewInstance returns ").object(result).string(" .. ").hex(LayoutEncoding.getObjectEnd(result)).string("]").newline();
             return result;
@@ -266,7 +254,7 @@ public final class ThreadLocalAllocation {
                     throw arrayAllocationTooLarge;
                 }
                 UnalignedHeapChunk.UnalignedHeader uChunk = HeapImpl.getChunkProvider().produceUnalignedChunk(size);
-                result = allocateLargeArray(hub, length, size, uChunk, tlab, rememberedSet);
+                result = allocateLargeArray(hub, length, size, uChunk, regularTLAB.getAddress(), rememberedSet);
             } else {
                 /* Small arrays go into the regular aligned chunk. */
                 AlignedHeader newChunk = prepareNewAllocationChunk(tlab, forOld);

@@ -192,7 +192,7 @@ public final class GCImpl implements GC {
 
         if(SubstrateOptions.SurvivalRate.getValue()){
             HeapImpl.getHeapImpl().walkCollectedHeapObjects(countObjectsAfterGCVisitor);
-            trace.string(" survival rate (approximate) ")
+            trace.string(" survival rate (approximate): ")
                     .rational(countObjectsAfterGCVisitor.objectCount, countObjectsBeforeGCVisitor.objectCount, 2)
                     .newline();
             countObjectsBeforeGCVisitor.objectCount = 0;
