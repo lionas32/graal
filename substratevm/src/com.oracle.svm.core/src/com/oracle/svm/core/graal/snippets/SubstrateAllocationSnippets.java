@@ -120,13 +120,11 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         Object result;
         boolean allocateInOld = false;
         if(SubstrateOptions.RolpGC.getValue()){
-            if(profilingData != null){
                 SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
                 if(allocationSite != 0 && StaticObjectLifetimeTable.epoch.aboveThan(8)){
                     allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
                 }
-            }
         }
         if(!allocateInOld){
             result = allocateInstanceImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
@@ -345,7 +343,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
             AllocationCounter allocationSiteCounter = svmProfilingData.allocationSiteCounter;
             // If 0, most likely a VM object, don't track it
-            if(allocationSiteCounter.getPersonalAllocationSite() != 0){
+            if(allocationSiteCounter.getPersonalAllocationSite() != 0 && StaticObjectLifetimeTable.toProfile){
                 SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite(), 0);
             }
             allocationSiteCounter.incrementCount();

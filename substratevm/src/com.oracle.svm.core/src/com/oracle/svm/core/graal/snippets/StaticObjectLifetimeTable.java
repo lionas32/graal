@@ -1,5 +1,6 @@
 package com.oracle.svm.core.graal.snippets;
 
+import com.oracle.svm.core.log.Log;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.WordFactory;
 
@@ -12,14 +13,10 @@ public class StaticObjectLifetimeTable {
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] allocationSites = new int[STATIC_SIZE];
-    public static int[] youngOrOld = new int[STATIC_SIZE]; // 0 > for old, else young?
+    public static int[] youngOrOld = new int[STATIC_SIZE];
 
-    /**
-     * If distribution doesn't change for 2 table clears, don't compute anymore.
-     * This could maybe be changed to a list of allocations sites? (such that we know which objects we are skipping).
-     */
-    public static boolean[] skippableObjects = new boolean[STATIC_SIZE];
-    public static int lastSkippableObject; // To avoid looking up in the table.
+    // Set if profiling turned on
+    public static boolean toProfile = true;
 
     // Variables to track the survivor rate
     public static int aliveBeforeGC = 0;
@@ -72,22 +69,11 @@ public class StaticObjectLifetimeTable {
         }
     }
 
-    public static final void setSkippableSite(int hash){
-        skippableObjects[hash] = true;
-    }
-
     public static final boolean incrementAllocation(int allocationSite, int lifetime){
         allocationSite &= allocationSiteMask;
-        if(lastSkippableObject == allocationSite){
-            return false;
-        }
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
             if(allocationSites[hash] == allocationSite){
-                if(skippableObjects[hash]){
-                    lastSkippableObject = allocationSite;
-                    return false;
-                }
                 allocationSiteCounters[hash][lifetime] += 1;
                 return true;
             }
@@ -100,59 +86,27 @@ public class StaticObjectLifetimeTable {
         return false;
     }
 
-    public static final boolean getIsSkippable(int allocationSite) {
-        allocationSite &= allocationSiteMask;
-        if(lastSkippableObject == allocationSite){
-            return true;
-        }
-        for(int i = 0; i < STATIC_SIZE; i++){
-            int hash = hash(i, allocationSite);
-            if(allocationSites[hash] == 0){
-                return true;
-            }
-            if(allocationSites[hash] == allocationSite){
-                if(skippableObjects[hash]){
-                    lastSkippableObject = allocationSite;
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
+
 
     /**
-     * Cache the distribution (1 for old, -1 for young)
-     * It's possible I need to change the 'toCache' condition. (promotions/allocations > 0.5)
-     * Also not sure about the last else-branch.
+     * Cache the distribution (1 for old, 0 for young)
      */
     public static final void cacheTable(){
         for(int i = 0; i < STATIC_SIZE; i++){
             int[] allocations = allocationSiteCounters[i];
             if(allocations != null){
-                if(skippableObjects[i]){
-                    continue;
-                }
-                boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
+                boolean toCache = allocations[0] * 0.5 < allocations[1] + allocations[2] + allocations[3];
                 if(toCache) {
-                    if (youngOrOld[i] == 1) {
-                        setSkippableSite(i);
-                    } else {
-                        youngOrOld[i] += 1;
-                    }
-                } else {
-                    if(youngOrOld[i] == 1 || youngOrOld[i] == -1){
-                        setSkippableSite(i);
-                    } else {
-                        youngOrOld[i] -= 1;
-                    }
+                    youngOrOld[i] = 1;
                 }
             }
         }
+        toProfile = false;
     }
 
-    // Ran every X epoch to ensure freshness
+    /**
+     * Ran every X epoch to ensure freshness
+     */
     public static final void clearTable(){
         for(int i = 0; i < STATIC_SIZE; i++){
             Arrays.fill(allocationSiteCounters[i], 0);
@@ -217,7 +171,7 @@ public class StaticObjectLifetimeTable {
         for(int i = 0; i < STATIC_SIZE; i++){
             int hash = hash(i, allocationSite);
             if (allocationSites[hash] == allocationSite) {
-                return youngOrOld[hash] > 0;
+                return youngOrOld[hash] == 1;
             }
             if (allocationSites[hash] == 0){
                 return false;

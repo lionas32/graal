@@ -208,13 +208,23 @@ public final class GCImpl implements GC {
 //                            .number(allocations[2], 10, false).string(", ")
 //                            .number(allocations[3], 10, false).string("]")
 //                            .newline();
+//
+//
+//                }
+//            }
+//
+//            for(int i = 0; i < StaticObjectLifetimeTable.allocationSites.length; i++){
+//                if (StaticObjectLifetimeTable.allocationSites[i] != 0) {
+//                    int youngOrOld = StaticObjectLifetimeTable.youngOrOld[i];
+//                    trace.string(" to cache (1 for old, 0 for young): ").number(youngOrOld, 10, false).newline();
+//                    trace.string(" to cache: ").bool(StaticObjectLifetimeTable.youngOrOld[i] > 0).newline();
 //                }
 //            }
 //        }
 
         if(SubstrateOptions.RolpGC.getValue()){
             StaticObjectLifetimeTable.epoch = collectionEpoch;
-            if(collectionEpoch.unsignedRemainder(8).equal(0) && collectionEpoch.notEqual(0)){
+            if(StaticObjectLifetimeTable.toProfile && collectionEpoch.unsignedRemainder(8).equal(0) && collectionEpoch.notEqual(0)){
                 trace.string("  clearing and caching table on epoch: ")
                         .unsigned(collectionEpoch).string(" time: ")
                         .unsigned(System.nanoTime()).string(" nanoSeconds").newline();
