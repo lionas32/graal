@@ -2,7 +2,6 @@ package com.oracle.svm.core.graal.phases;
 
 import com.oracle.svm.core.hub.DynamicHub;
 import com.oracle.svm.core.meta.SharedType;
-import jdk.vm.ci.meta.ResolvedJavaMethod;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
 import org.graalvm.compiler.nodes.ValueNode;
@@ -24,6 +23,7 @@ public class InsertAllocationSitePhase extends Phase {
     private final int allocationCounterMask = 0x0000ffff;
     // Used as the second unique identifier;
     private int allocationCounter = 1;
+    private int totalAllocations = 0;
     private String[] skippablePackage = {"java.", "com.", "jdk.", "sun.", "org."};
 
     @Override
@@ -62,19 +62,16 @@ public class InsertAllocationSitePhase extends Phase {
         graph.addAfterFixed(n, writeNode);
         graph.add(writeNode);
         n.setPersonalAllocationSite(allocationSiteForNode);
+        totalAllocations++;
     }
 
     private int createAllocationSiteForNode(ValueNode node) {
-        ResolvedJavaMethod method = node.graph().getMethods().get(0);
-        int allocationSite = (method.format("%H.%n").hashCode() & methodMask) | (allocationCounter & allocationCounterMask);
+        int allocationSite = allocationCounter;
         incrementAllocationCounter();
         return allocationSite;
     }
 
     private void incrementAllocationCounter(){
         ++allocationCounter;
-        if (allocationCounter > 0xffff) {
-            allocationCounter = 1;
-        }
     }
 }
