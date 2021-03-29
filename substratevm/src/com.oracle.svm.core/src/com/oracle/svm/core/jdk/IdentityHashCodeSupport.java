@@ -26,13 +26,11 @@ package com.oracle.svm.core.jdk;
 
 import java.util.SplittableRandom;
 
-import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.config.ConfigurationValues;
 import com.oracle.svm.core.config.ObjectLayout;
-import com.oracle.svm.core.graal.snippets.StaticObjectLifetimeTable;
+import com.oracle.svm.core.graal.snippets.FixedObjectLifetimeTable;
 import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets.SubstrateAllocationProfilingData;
 import com.oracle.svm.core.hub.DynamicHub;
-import com.oracle.svm.core.log.Log;
 import com.oracle.svm.core.snippets.KnownIntrinsics;
 import org.graalvm.compiler.nodes.NamedLocationIdentity;
 import org.graalvm.compiler.serviceprovider.GraalUnsafeAccess;
@@ -76,8 +74,8 @@ public final class IdentityHashCodeSupport {
     public static int overwriteContextForHashCode(Object obj, int hashCodeOffset, int allocationContext){
         // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();
-        int age = StaticObjectLifetimeTable.maskAge(allocationContext);
-        int allocationSite = StaticObjectLifetimeTable.maskAllocationSite(allocationContext);
+        int age = FixedObjectLifetimeTable.maskAge(allocationContext);
+        int allocationSite = FixedObjectLifetimeTable.maskAllocationSite(allocationContext);
         SubstrateAllocationProfilingData.decrementAllocation(allocationSite, age);
 
         if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContext, newHashCode)) {

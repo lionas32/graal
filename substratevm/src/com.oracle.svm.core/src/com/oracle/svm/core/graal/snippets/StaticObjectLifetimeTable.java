@@ -1,6 +1,5 @@
 package com.oracle.svm.core.graal.snippets;
 
-import com.oracle.svm.core.log.Log;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.WordFactory;
 
@@ -18,56 +17,7 @@ public class StaticObjectLifetimeTable {
     // Set if profiling turned on
     public static boolean toProfile = true;
 
-    // Variables to track the survivor rate
-    public static int aliveBeforeGC = 0;
-    public static int aliveAfterGC = 0;
-    public static int aliveBefore0thIndex = 0;
-    public static int aliveBefore2stIndex = 0;
-    public static int aliveAfter0thIndex = 0;
-    public static boolean start = true;
-
-
     public static UnsignedWord epoch = WordFactory.unsigned(0); // total GC cycles
-
-
-    // methods for survivor rate
-    public static final void calculateBefore(){
-        if(start){
-            for(int i = 0; i < allocationSiteCounters.length; i++){
-                aliveBeforeGC += allocationSiteCounters[i][0];
-            }
-        } else {
-            aliveBeforeGC = 0;
-            aliveBefore0thIndex = 0;
-            aliveBefore2stIndex = 0;
-            for(int i = 0; i < allocationSiteCounters.length; i++) {
-                aliveBeforeGC += allocationSiteCounters[i][0];
-                aliveBefore0thIndex += allocationSiteCounters[i][0];
-                aliveBefore2stIndex += allocationSiteCounters[i][2];
-            }
-            aliveBeforeGC = (aliveBeforeGC - aliveAfter0thIndex) + aliveAfterGC;
-        }
-    }
-
-    public static final void calculateAfter(){
-        if(start){
-            for(int i = 0; i < allocationSiteCounters.length; i++){
-                aliveAfterGC += allocationSiteCounters[i][0];
-            }
-            aliveAfter0thIndex = aliveAfterGC;
-            aliveAfterGC = aliveBeforeGC - aliveAfterGC;
-            start = false;
-        } else {
-            int aliveAfter0thIndex = 0;
-            int aliveAfter2thIndex = 0;
-            for(int[] i : allocationSiteCounters){
-                aliveAfter0thIndex += i[0];
-                aliveAfter2thIndex += i[2];
-            }
-
-            aliveAfterGC = Math.abs(aliveBefore0thIndex -  aliveAfter0thIndex) + Math.abs(aliveBefore2stIndex -  aliveAfter2thIndex);
-        }
-    }
 
     public static final boolean incrementAllocation(int allocationSite, int lifetime){
         allocationSite &= allocationSiteMask;
@@ -85,8 +35,6 @@ public class StaticObjectLifetimeTable {
         }
         return false;
     }
-
-
 
     /**
      * Cache the distribution (1 for old, 0 for young)

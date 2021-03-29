@@ -31,7 +31,7 @@ import static com.oracle.svm.core.snippets.KnownIntrinsics.readReturnAddress;
 
 import java.lang.ref.Reference;
 
-import com.oracle.svm.core.graal.snippets.StaticObjectLifetimeTable;
+import com.oracle.svm.core.graal.snippets.FixedObjectLifetimeTable;
 import org.graalvm.compiler.api.replacements.Fold;
 import org.graalvm.nativeimage.CurrentIsolate;
 import org.graalvm.nativeimage.IsolateThread;
@@ -223,13 +223,13 @@ public final class GCImpl implements GC {
 //        }
 
         if(SubstrateOptions.RolpGC.getValue()){
-            StaticObjectLifetimeTable.epoch = collectionEpoch;
-            if(StaticObjectLifetimeTable.toProfile && collectionEpoch.unsignedRemainder(8).equal(0) && collectionEpoch.notEqual(0)){
+            FixedObjectLifetimeTable.epoch = collectionEpoch;
+            if(FixedObjectLifetimeTable.toProfile && collectionEpoch.unsignedRemainder(8).equal(0) && collectionEpoch.notEqual(0)){
                 trace.string("  clearing and caching table on epoch: ")
                         .unsigned(collectionEpoch).string(" time: ")
                         .unsigned(System.nanoTime()).string(" nanoSeconds").newline();
-                StaticObjectLifetimeTable.cacheTable();
-                StaticObjectLifetimeTable.clearTable();
+                FixedObjectLifetimeTable.cacheTable();
+                FixedObjectLifetimeTable.clearTable();
             }
         }
 

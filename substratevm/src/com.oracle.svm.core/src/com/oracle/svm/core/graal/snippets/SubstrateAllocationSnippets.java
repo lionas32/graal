@@ -122,8 +122,8 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         if(SubstrateOptions.RolpGC.getValue()){
                 SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                if(allocationSite != 0 && StaticObjectLifetimeTable.epoch.aboveThan(8)){
-                    allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
+                if(allocationSite != 0 && FixedObjectLifetimeTable.epoch.aboveThan(8)){
+                    allocateInOld = FixedObjectLifetimeTable.getCachedGeneration(allocationSite);
                 }
         }
         if(!allocateInOld){
@@ -151,8 +151,8 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             if(profilingData != null){
                 SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                if(allocationSite != 0 && StaticObjectLifetimeTable.epoch.aboveThan(8)){
-                    allocateInOld = StaticObjectLifetimeTable.getCachedGeneration(allocationSite);
+                if(allocationSite != 0 && FixedObjectLifetimeTable.epoch.aboveThan(8)){
+                    allocateInOld = FixedObjectLifetimeTable.getCachedGeneration(allocationSite);
                 }
             }
         }
@@ -343,7 +343,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
             AllocationCounter allocationSiteCounter = svmProfilingData.allocationSiteCounter;
             // If 0, most likely a VM object, don't track it
-            if(allocationSiteCounter.getPersonalAllocationSite() != 0 && StaticObjectLifetimeTable.toProfile){
+            if(allocationSiteCounter.getPersonalAllocationSite() != 0 && FixedObjectLifetimeTable.toProfile){
                 SubstrateAllocationProfilingData.incrementAllocation(allocationSiteCounter.getPersonalAllocationSite(), 0);
             }
             allocationSiteCounter.incrementCount();
@@ -417,19 +417,19 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         }
 
         public static final boolean incrementAllocation(int allocationSite, int lifetime){
-            return StaticObjectLifetimeTable.incrementAllocation(allocationSite, lifetime);
+            return FixedObjectLifetimeTable.incrementAllocation(allocationSite, lifetime);
         }
 
         public static final boolean decrementAllocation(int allocationSite, int lifetime){
-            return StaticObjectLifetimeTable.decrementAllocation(allocationSite, lifetime);
+            return FixedObjectLifetimeTable.decrementAllocation(allocationSite, lifetime);
         }
 
         public static final int[] getLifetimesForAllocationSite(int allocationSite){
-            return StaticObjectLifetimeTable.getLifetimesForAllocationSite(allocationSite);
+            return FixedObjectLifetimeTable.getLifetimesForAllocationSite(allocationSite);
         }
 
         public static final boolean exists(int allocationSite){
-            return StaticObjectLifetimeTable.exists(allocationSite);
+            return FixedObjectLifetimeTable.exists(allocationSite);
         }
     }
 
