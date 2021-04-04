@@ -11,7 +11,6 @@ public class FixedObjectLifetimeTable {
     public static final int STATIC_SIZE = 65536;
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
-    public static int[] allocationSites = new int[STATIC_SIZE];
     public static int[] youngOrOld = new int[STATIC_SIZE];
 
     // Set if profiling turned on
@@ -32,7 +31,7 @@ public class FixedObjectLifetimeTable {
         for(int i = 0; i < STATIC_SIZE; i++){
             int[] allocations = allocationSiteCounters[i];
             if(allocations != null){
-                boolean toCache = allocations[0] * 0.5 < allocations[1] + allocations[2] + allocations[3];
+                boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
                 if(toCache) {
                     youngOrOld[i] = 1;
                 }
