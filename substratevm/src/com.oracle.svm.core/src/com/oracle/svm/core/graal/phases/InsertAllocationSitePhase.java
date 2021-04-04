@@ -14,26 +14,17 @@ import org.graalvm.compiler.nodes.memory.address.AddressNode;
 import org.graalvm.compiler.nodes.memory.address.OffsetAddressNode;
 import org.graalvm.compiler.phases.Phase;
 
-import java.util.Arrays;
-
 import static com.oracle.svm.core.jdk.IdentityHashCodeSupport.IDENTITY_HASHCODE_LOCATION;
 
 public class InsertAllocationSitePhase extends Phase {
-    private final int methodMask = 0x3fff0000;
-    private final int allocationCounterMask = 0x0000ffff;
     // Used as the second unique identifier;
     private int allocationCounter = 1;
     private int totalAllocations = 0;
-    private String[] skippablePackage = {"java.", "com.", "jdk.", "sun.", "org."};
 
     @Override
     protected void run(StructuredGraph graph) {
         for(AbstractNewObjectNode n : graph.getNodes().filter(AbstractNewObjectNode.class)){
-            if (Arrays.stream(skippablePackage).anyMatch(e -> n.graph().method().format("%H").startsWith(e))) {
-                // Used as a value we skip together with the OLD table
-                n.setPersonalAllocationSite(0);
-                continue;
-            } else if (n instanceof NewInstanceNode){
+            if (n instanceof NewInstanceNode){
                 SharedType type = (SharedType) ((NewInstanceNode) n).instanceClass();
                 DynamicHub hub = type.getHub();
                 setupNode(hub, graph, n);
