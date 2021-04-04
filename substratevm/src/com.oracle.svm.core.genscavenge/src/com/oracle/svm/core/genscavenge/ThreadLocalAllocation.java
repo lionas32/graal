@@ -159,7 +159,7 @@ public final class ThreadLocalAllocation {
     @RestrictHeapAccess(access = RestrictHeapAccess.Access.NO_ALLOCATION, reason = "Must not allocate in the implementation of allocation.")
     private static Object slowPathNewInstanceWithoutAllocating(DynamicHub hub, boolean forOld) {
         if(forOld){
-            return allocateNewInstance(hub, extraTLAB.getAddress(), false, forOld);
+            return allocateNewInstance(hub, extraTLAB.getAddress(), true, forOld);
         } else {
             return allocateNewInstance(hub, regularTLAB.getAddress(), false, forOld);
         }
@@ -254,7 +254,7 @@ public final class ThreadLocalAllocation {
                     throw arrayAllocationTooLarge;
                 }
                 UnalignedHeapChunk.UnalignedHeader uChunk = HeapImpl.getChunkProvider().produceUnalignedChunk(size);
-                result = allocateLargeArray(hub, length, size, uChunk, regularTLAB.getAddress(), rememberedSet);
+                result = allocateLargeArray(hub, length, size, uChunk, regularTLAB.getAddress(), false);
             } else {
                 /* Small arrays go into the regular aligned chunk. */
                 AlignedHeader newChunk = prepareNewAllocationChunk(tlab, forOld);
