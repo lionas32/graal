@@ -4,7 +4,6 @@ import com.oracle.svm.core.hub.DynamicHub;
 import com.oracle.svm.core.meta.SharedType;
 import org.graalvm.compiler.nodes.ConstantNode;
 import org.graalvm.compiler.nodes.StructuredGraph;
-import org.graalvm.compiler.nodes.ValueNode;
 import org.graalvm.compiler.nodes.java.AbstractNewObjectNode;
 import org.graalvm.compiler.nodes.java.NewArrayNode;
 import org.graalvm.compiler.nodes.java.NewInstanceNode;
@@ -44,7 +43,7 @@ public class InsertAllocationSitePhase extends Phase {
         //the whole address for the hashCodeOffset
         AddressNode address = new OffsetAddressNode(n, hashCodeOffsetNode);
         graph.unique(address);
-        int allocationSiteForNode = createAllocationSiteForNode(n);
+        int allocationSiteForNode = createAllocationSiteForNode();
         ConstantNode allocationSiteValueNode = ConstantNode.forInt(allocationSiteForNode);
         //the node we use to writing to memory (or overwriting the object hashcode)
         WriteNode writeNode = new WriteNode(address,
@@ -56,7 +55,7 @@ public class InsertAllocationSitePhase extends Phase {
         totalAllocations++;
     }
 
-    private int createAllocationSiteForNode(ValueNode node) {
+    private int createAllocationSiteForNode() {
         int allocationSite = allocationCounter;
         incrementAllocationCounter();
         return allocationSite;
