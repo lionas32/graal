@@ -33,7 +33,11 @@ public class FixedObjectLifetimeTable {
             if(allocations != null){
                 boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
                 if(toCache) {
-                    youngOrOld[i] = 1;
+                    if(youngOrOld[i] == 0){
+                        youngOrOld[i] = 1;
+                    } else {
+                        // skip for now, maybe implement something here later
+                    }
                 }
             }
         }
