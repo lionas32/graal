@@ -491,26 +491,19 @@ final class Space {
         assert getLastUnalignedHeapChunk().isNull() : "Failed to remove last UnalignedHeapChunk";
     }
 
-    private void incrementAgeBits(Object obj){
-        int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
-        int allocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
+    private int incrementAgeBits(Object obj, int hashCodeOffset, int allocationContext){
         int oldAge = FixedObjectLifetimeTable.maskAge(allocationContext);
 
         if(oldAge == FixedObjectLifetimeTable.MAX_AGE){
-            return; // Already at maximum age, can't increment
+            return allocationContext; // Already at maximum age, can't increment
         }
 
         int newAge = oldAge + 1;
-
         int newAllocationContext = (newAge << 30) | (FixedObjectLifetimeTable.maskAllocationSite(allocationContext));
         if(!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContext, newAllocationContext)){
             Log.log().string("incrementAgeBits: Wrong allocation context").newline();
         }
-    }
-
-    private int readAgeBits(Object obj){
-        int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
-        return FixedObjectLifetimeTable.maskAge(ObjectAccess.readInt(obj, hashCodeOffset));
+        return newAllocationContext;
     }
 
     private int computeLifetimeBeforePromotion(Object obj){
@@ -520,15 +513,16 @@ final class Space {
             return 0; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode) we skip over the object. Also if it is skippable.
         }
 
-        int oldAgeBits = readAgeBits(obj);
-        incrementAgeBits(obj);
-        int ageBits = readAgeBits(obj);
-        if((ageBits > 0 && ageBits != 0b11) || oldAgeBits == 0b10) {
+        int prevAgeBits = FixedObjectLifetimeTable.maskAge(allocationContext);
+        int newAllocationContext = incrementAgeBits(obj, hashCodeOffset, allocationContext);
+        int ageBits = newAllocationContext == allocationContext ? prevAgeBits : prevAgeBits + 1; // if allocation context changed, age must have increased
+
+        if((ageBits > 0 && ageBits != 0b11) || prevAgeBits == 0b10) {
             boolean inc = SubstrateAllocationProfilingData.incrementAllocation(allocationContext, ageBits);
             boolean dec = SubstrateAllocationProfilingData.decrementAllocation(allocationContext, ageBits - 1);
         }
 
-        return ObjectAccess.readInt(obj, hashCodeOffset); // Have to compute it again due to possible new age
+        return newAllocationContext;
     }
 
     /** Promote an aligned Object to this Space. */
