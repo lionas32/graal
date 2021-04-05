@@ -26,6 +26,7 @@ package com.oracle.svm.core.jdk;
 
 import java.util.SplittableRandom;
 
+import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.config.ConfigurationValues;
 import com.oracle.svm.core.config.ObjectLayout;
 import com.oracle.svm.core.graal.snippets.FixedObjectLifetimeTable;
@@ -75,8 +76,7 @@ public final class IdentityHashCodeSupport {
         // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();
         int age = FixedObjectLifetimeTable.maskAge(allocationContext);
-        int allocationSite = FixedObjectLifetimeTable.maskAllocationSite(allocationContext);
-        SubstrateAllocationProfilingData.decrementAllocation(allocationSite, age);
+        SubstrateAllocationProfilingData.decrementAllocation(allocationContext, age);
 
         if (!GraalUnsafeAccess.getUnsafe().compareAndSwapInt(obj, hashCodeOffset, allocationContext, newHashCode)) {
             throw VMError.shouldNotReachHere("should have swapped allocation context with hashcode here");
@@ -118,7 +118,12 @@ public final class IdentityHashCodeSupport {
          * The range of nextInt(MAX_INT) includes 0 and excludes MAX_INT, so adding 1 gives us the
          * range [1, MAX_INT] that we want.
          */
-        int hashCode = hashCodeGenerator.nextInt(Integer.MAX_VALUE) + 1;
+        int hashCode;
+        if (SubstrateOptions.RolpGC.getValue()) {
+            hashCode = hashCodeGenerator.nextInt(FixedObjectLifetimeTable.STATIC_SIZE, Integer.MAX_VALUE) + 1;
+        } else {
+            hashCode = hashCodeGenerator.nextInt(Integer.MAX_VALUE) + 1;
+        }
 
         assert hashCode != 0 : "Must not return 0 because it means 'hash code not computed yet' in the field that stores the hash code";
         assert hashCode > 0 : "The Java HotSpot VM only returns positive numbers for the identity hash code, so we want to have the same restriction on Substrate VM in order to not surprise users";
