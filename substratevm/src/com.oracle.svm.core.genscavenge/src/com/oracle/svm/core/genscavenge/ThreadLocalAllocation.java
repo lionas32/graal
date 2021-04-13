@@ -222,7 +222,6 @@ public final class ThreadLocalAllocation {
 
     @RestrictHeapAccess(access = RestrictHeapAccess.Access.NO_ALLOCATION, reason = "Must not allocate in the implementation of allocation.")
     private static Object slowPathNewArrayWithoutAllocating(DynamicHub hub, int length, boolean forOld) {
-//        ThreadLocalAllocation.Descriptor tlab = ThreadLocalAllocation.regularTLAB.getAddress();
         if(forOld){
             return allocateNewArray(hub, length, extraTLAB.getAddress(), true, forOld);
         } else {

@@ -147,6 +147,14 @@ public final class GCImpl implements GC {
         }
     }
 
+    private int sumArr(int[] a){
+        int sum = 0;
+        for(int i : a){
+            sum += i;
+        }
+        return sum;
+    }
+
     /** The body of the VMOperation to do the collection. */
     private boolean collectOperation(GCCause cause, UnsignedWord requestingEpoch) {
         Log trace = Log.log().string("[GCImpl.collectOperation:").newline()
@@ -171,16 +179,19 @@ public final class GCImpl implements GC {
         ThreadLocalAllocation.disableAndFlushForAllThreads();
 
         printGCBefore(cause.getName());
-//
-//        if(SubstrateOptions.RolpGC.getValue()){
-//            for(int i = 0; i < StaticObjectLifetimeTable.allocationSites.length; i++){
-//                if(StaticObjectLifetimeTable.allocationSites[i] != 0){
-//                    int[] allocations = StaticObjectLifetimeTable.allocationSiteCounters[i];
-//                    trace.string(" distribution (before gc): [").number(allocations[0], 10, false).string(", ")
+
+//        if(SubstrateOptions.RolpGC.getValue()) {
+//            for (int i = 0; i < FixedObjectLifetimeTable.allocationSiteCounters.length; i++) {
+//                if (sumArr(FixedObjectLifetimeTable.allocationSiteCounters[i]) != 0) {
+//                    int[] allocations = FixedObjectLifetimeTable.allocationSiteCounters[i];
+//                    trace.string(" distribution (after gc): [").number(allocations[0], 10, false).string(", ")
 //                            .number(allocations[1], 10, false).string(", ")
 //                            .number(allocations[2], 10, false).string(", ")
 //                            .number(allocations[3], 10, false).string("]")
+//                            .string(" index: ").number(i, 10, false)
 //                            .newline();
+//
+//
 //                }
 //            }
 //        }
@@ -199,19 +210,21 @@ public final class GCImpl implements GC {
             countObjectsAfterGCVisitor.objectCount = 0;
         }
 
-//        if(SubstrateOptions.RolpGC.getValue()){
-//            for(int i = 0; i < StaticObjectLifetimeTable.allocationSites.length; i++){
-//                if(StaticObjectLifetimeTable.allocationSites[i] != 0){
-//                    int[] allocations = StaticObjectLifetimeTable.allocationSiteCounters[i];
+//        if(SubstrateOptions.RolpGC.getValue()) {
+//            for (int i = 0; i < FixedObjectLifetimeTable.allocationSiteCounters.length; i++) {
+//                if (sumArr(FixedObjectLifetimeTable.allocationSiteCounters[i]) != 0) {
+//                    int[] allocations = FixedObjectLifetimeTable.allocationSiteCounters[i];
 //                    trace.string(" distribution (after gc): [").number(allocations[0], 10, false).string(", ")
 //                            .number(allocations[1], 10, false).string(", ")
 //                            .number(allocations[2], 10, false).string(", ")
 //                            .number(allocations[3], 10, false).string("]")
+//                            .string(" index: ").number(i, 10, false)
 //                            .newline();
 //
 //
 //                }
 //            }
+//        }
 //
 //            for(int i = 0; i < StaticObjectLifetimeTable.allocationSites.length; i++){
 //                if (StaticObjectLifetimeTable.allocationSites[i] != 0) {

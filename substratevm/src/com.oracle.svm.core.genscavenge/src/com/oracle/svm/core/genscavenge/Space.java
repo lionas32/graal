@@ -535,7 +535,6 @@ final class Space {
             allocationContext = computeLifetimeBeforePromotion(original);
         }
 
-        //TODO: Rewrite this to be less dependent on RolpGC
         if (SubstrateOptions.RolpGC.getValue() && HeapOptions.TraceObjectPromotion.getValue() &&
                 allocationContext != 0 && SubstrateAllocationProfilingData.exists(allocationContext)) {
             int allocationSite = FixedObjectLifetimeTable.maskAllocationSite(allocationContext);
