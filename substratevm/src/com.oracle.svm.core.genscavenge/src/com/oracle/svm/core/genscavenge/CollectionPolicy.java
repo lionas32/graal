@@ -43,6 +43,9 @@ abstract class CollectionPolicy {
 
         @Option(help = "Percentage of total collection time that should be spent on young generation collections.")//
         public static final RuntimeOptionKey<Integer> PercentTimeInIncrementalCollection = new RuntimeOptionKey<>(50);
+
+        @Option(help = "Percentage of taken heap size before we trigger a complete collection. Used with ROLP.")//
+        public static final RuntimeOptionKey<Integer> PercentHeapThreshold = new RuntimeOptionKey<>(100);
     }
 
     @Platforms(Platform.HOSTED_ONLY.class)
@@ -180,6 +183,74 @@ abstract class CollectionPolicy {
             return heapSize.belowThan(withFullPromotion);
         }
     }
+
+    public static class ByTimeWithRolp extends CollectionPolicy {
+
+        @Override
+        public boolean collectIncrementally() {
+            return HeapPolicy.getYoungUsedBytes().aboveOrEqual(HeapPolicy.getMaximumYoungGenerationSize());
+        }
+
+        @Override
+        public boolean collectCompletely() {
+            Log trace = Log.noopLog().string("[CollectionPolicy.ByTime.collectIncrementally:");
+
+            boolean result = collectCompletelyBasedOnTime(trace) || collectCompletelyBasedOnUsedBytes(trace)
+                    || collectCompletelyBasedOnSpace(trace);
+
+            trace.string("  returns: ").bool(result).string("]").newline();
+            return result;
+        }
+
+        @Override
+        public void nameToLog(Log log) {
+            log.string("by time: ").signed(Options.PercentTimeInIncrementalCollection.getValue()).string("% in incremental collections");
+        }
+
+        /**
+         * If the time spent in incremental collections is more than the requested percentage of the
+         * total time, then ask for a complete collection.
+         */
+        private static boolean collectCompletelyBasedOnTime(Log trace) {
+            int incrementalWeight = Options.PercentTimeInIncrementalCollection.getValue();
+            trace.string("  incrementalWeight: ").signed(incrementalWeight).newline();
+            assert ((0L <= incrementalWeight) && (incrementalWeight <= 100L)) : "ByTimePercentTimeInIncrementalCollection should be in the range [0..100].";
+
+            long incrementalNanos = getAccounting().getIncrementalCollectionTotalNanos();
+            long completeNanos = getAccounting().getCompleteCollectionTotalNanos();
+            long totalNanos = incrementalNanos + completeNanos;
+            long weightedTotalNanos = TimeUtils.weightedNanos(incrementalWeight, totalNanos);
+            trace.string("  incrementalNanos: ").unsigned(incrementalNanos)
+                    .string("  completeNanos: ").unsigned(completeNanos)
+                    .string("  totalNanos: ").unsigned(totalNanos)
+                    .string("  weightedTotalNanos: ").unsigned(weightedTotalNanos)
+                    .newline();
+            return TimeUtils.nanoTimeLessThan(weightedTotalNanos, incrementalNanos);
+        }
+
+
+        /**
+         * If the heap does not have room for the young generation, the old objects already in use,
+         * and a complete copy of the young generation, then request a complete collection.
+         */
+        private static boolean collectCompletelyBasedOnSpace(Log trace) {
+            UnsignedWord heapSize = HeapPolicy.getMaximumHeapSize();
+            UnsignedWord youngSize = HeapPolicy.getMaximumYoungGenerationSize();
+            UnsignedWord oldInUse = getAccounting().getOldGenerationAfterChunkBytes();
+            UnsignedWord withFullPromotion = youngSize.add(oldInUse).add(youngSize);
+            trace.string("  withFullPromotion: ").unsigned(withFullPromotion).newline();
+            return heapSize.belowThan(withFullPromotion);
+        }
+
+        private static boolean collectCompletelyBasedOnUsedBytes(Log trace) {
+            UnsignedWord heapSize = HeapPolicy.getMaximumHeapSize();
+            UnsignedWord oldInUse = HeapPolicy.getOldUsedBytes();
+            UnsignedWord thresholdSize = heapSize.unsignedDivide(100).multiply(Options.PercentHeapThreshold.getValue());
+            return oldInUse.aboveOrEqual(thresholdSize);
+        }
+    }
+
+
 
     /**
      * A collection policy that delays complete collections until the heap has at least `-Xms` space

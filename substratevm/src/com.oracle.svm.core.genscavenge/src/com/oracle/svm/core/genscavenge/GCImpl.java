@@ -182,9 +182,13 @@ public final class GCImpl implements GC {
 
 //        if(SubstrateOptions.RolpGC.getValue()) {
 //            for (int i = 0; i < FixedObjectLifetimeTable.allocationSiteCounters.length; i++) {
-//                if (sumArr(FixedObjectLifetimeTable.allocationSiteCounters[i]) != 0) {
-//                    int[] allocations = FixedObjectLifetimeTable.allocationSiteCounters[i];
-//                    trace.string(" distribution (after gc): [").number(allocations[0], 10, false).string(", ")
+//                int[] allocationSiteCounter = FixedObjectLifetimeTable.allocationSiteCounters[i];
+//                if(collectionEpoch.aboveThan(9)){
+//                    allocationSiteCounter = FixedObjectLifetimeTable.testTable[i];
+//                }
+//                if (sumArr(allocationSiteCounter) != 0) {
+//                    int[] allocations = allocationSiteCounter;
+//                    trace.string(" distribution (before gc): [").number(allocations[0], 10, false).string(", ")
 //                            .number(allocations[1], 10, false).string(", ")
 //                            .number(allocations[2], 10, false).string(", ")
 //                            .number(allocations[3], 10, false).string("]")
@@ -212,8 +216,12 @@ public final class GCImpl implements GC {
 
 //        if(SubstrateOptions.RolpGC.getValue()) {
 //            for (int i = 0; i < FixedObjectLifetimeTable.allocationSiteCounters.length; i++) {
-//                if (sumArr(FixedObjectLifetimeTable.allocationSiteCounters[i]) != 0) {
-//                    int[] allocations = FixedObjectLifetimeTable.allocationSiteCounters[i];
+//                int[] allocationSiteCounter = FixedObjectLifetimeTable.allocationSiteCounters[i];
+//                if(collectionEpoch.aboveThan(9)){
+//                    allocationSiteCounter = FixedObjectLifetimeTable.testTable[i];
+//                }
+//                if (sumArr(allocationSiteCounter) != 0) {
+//                    int[] allocations = allocationSiteCounter;
 //                    trace.string(" distribution (after gc): [").number(allocations[0], 10, false).string(", ")
 //                            .number(allocations[1], 10, false).string(", ")
 //                            .number(allocations[2], 10, false).string(", ")

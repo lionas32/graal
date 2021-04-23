@@ -73,7 +73,6 @@ public final class IdentityHashCodeSupport {
 
     /** Used when running with RolpGC */
     public static int overwriteContextForHashCode(Object obj, int hashCodeOffset, int allocationContext){
-        // generate a new hashcode and try to store it into the object
         int newHashCode = generateHashCode();
         int age = FixedObjectLifetimeTable.maskAge(allocationContext);
         SubstrateAllocationProfilingData.decrementAllocation(allocationContext, age);

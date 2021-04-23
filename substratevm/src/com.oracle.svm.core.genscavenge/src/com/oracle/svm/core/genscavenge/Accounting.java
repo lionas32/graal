@@ -24,13 +24,11 @@
  */
 package com.oracle.svm.core.genscavenge;
 
-import org.graalvm.compiler.core.common.type.ArithmeticOpTable;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
 import org.graalvm.word.UnsignedWord;
 import org.graalvm.word.WordFactory;
 
-import com.oracle.svm.core.SubstrateOptions;
 import com.oracle.svm.core.log.Log;
 
 /**
@@ -113,7 +111,7 @@ final class Accounting {
     }
 
     void beforeCollection() {
-        Log trace = Log.noopLog().string("[GCImpl.Accounting.beforeCollection:").newline();
+        Log trace = Log.log().string("[GCImpl.Accounting.beforeCollection:").newline();
         /* Gather some space statistics. */
         HeapImpl heap = HeapImpl.getHeapImpl();
         YoungGeneration youngGen = heap.getYoungGeneration();
@@ -143,7 +141,7 @@ final class Accounting {
     }
 
     private void afterIncrementalCollection(Timer collectionTimer) {
-        Log trace = Log.noopLog().string("[GCImpl.Accounting.afterIncrementalCollection:");
+        Log trace = Log.log().string("[GCImpl.Accounting.afterIncrementalCollection:");
         /*
          * Aggregating collection information is needed because any given collection policy may not
          * be called for all collections, but may want to make decisions based on the aggregate
@@ -157,6 +155,7 @@ final class Accounting {
         incrementalCollectionTotalNanos += collectionTimer.getMeasuredNanos();
         trace.string("  incrementalCollectionCount: ").signed(incrementalCollectionCount)
                         .string("  oldChunkBytesAfter: ").unsigned(oldChunkBytesAfter)
+                        .string("  youngUsedBytesAfter: ").unsigned(youngChunkBytesAfter)
                         .string("  oldChunkBytesBefore: ").unsigned(oldChunkBytesBefore)
                         .string("  promotedChunkBytes: ").unsigned(lastCollectionPromotedChunkBytes);
         trace.string("]").newline();
@@ -164,14 +163,15 @@ final class Accounting {
     }
 
     private void afterCompleteCollection(Timer collectionTimer) {
-        Log trace = Log.noopLog().string("[GCImpl.Accounting.afterCompleteCollection:");
+        Log trace = Log.log().string("[GCImpl.Accounting.afterCompleteCollection:");
         completeCollectionCount += 1;
         afterCollectionCommon();
         /* Complete collections only copy, and they copy everything. */
         copiedTotalChunkBytes = copiedTotalChunkBytes.add(oldChunkBytesAfter);
         completeCollectionTotalNanos += collectionTimer.getMeasuredNanos();
         trace.string("  completeCollectionCount: ").signed(completeCollectionCount)
-                        .string("  oldChunkBytesAfter: ").unsigned(oldChunkBytesAfter);
+                        .string("  oldChunkBytesAfter: ").unsigned(oldChunkBytesAfter)
+                        .string("  youngUsedBytesAfter: ").unsigned(youngChunkBytesAfter);
         trace.string("]").newline();
     }
 

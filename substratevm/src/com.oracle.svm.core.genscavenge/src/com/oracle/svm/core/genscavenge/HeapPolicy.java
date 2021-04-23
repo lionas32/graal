@@ -369,8 +369,11 @@ public final class HeapPolicy {
         public void maybeCauseCollection() {
             if (youngUsedBytes.get().aboveOrEqual(getMaximumYoungGenerationSize())) {
                 GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
-            } else if (SubstrateOptions.RolpGC.getValue() && oldUsedBytes.get().aboveOrEqual(getMaximumHeapSize())){
-                GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
+            } else if (SubstrateOptions.RolpGC.getValue()){
+                UnsignedWord thresholdSize = getMaximumHeapSize().unsignedDivide(100).multiply(CollectionPolicy.Options.PercentHeapThreshold.getValue());
+                if(oldUsedBytes.get().aboveOrEqual(thresholdSize)){
+                    GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
+                }
             }
         }
     }
