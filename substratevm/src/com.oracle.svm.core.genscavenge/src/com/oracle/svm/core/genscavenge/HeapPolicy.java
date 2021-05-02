@@ -365,14 +365,28 @@ public final class HeapPolicy {
 
     /** A policy that causes collections if enough young generation allocation has happened. */
     static final class SometimesCollectOnAllocation implements CollectOnAllocationPolicy {
+
+        static UnsignedWord withFullPromotion = WordFactory.nullPointer();
+
         @Override
         public void maybeCauseCollection() {
             if (youngUsedBytes.get().aboveOrEqual(getMaximumYoungGenerationSize())) {
                 GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
-            } else if (SubstrateOptions.RolpGC.getValue()){
-                UnsignedWord thresholdSize = getMaximumHeapSize().unsignedDivide(100).multiply(CollectionPolicy.Options.PercentHeapThreshold.getValue());
-                if(oldUsedBytes.get().aboveOrEqual(thresholdSize)){
-                    GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
+            } else if (SubstrateOptions.RolpGC.getValue() && PhysicalMemory.isInitialized()){
+                if (withFullPromotion.equal(WordFactory.nullPointer())) {
+                    if(CollectionPolicy.Options.PercentHeapThreshold.getValue().equals(100)){
+                        UnsignedWord thresholdSize = HeapPolicy.getMaximumHeapSize();
+                        UnsignedWord youngSize = HeapPolicy.getMaximumYoungGenerationSize();
+                        withFullPromotion = thresholdSize.subtract(youngSize).subtract(youngSize);
+                    } else {
+                        withFullPromotion = HeapPolicy.getMaximumHeapSize().unsignedDivide(100)
+                                                                .multiply(CollectionPolicy.Options.PercentHeapThreshold.getValue());
+                    }
+                } else {
+                    UnsignedWord oldInUse = HeapPolicy.getOldUsedBytes();
+                    if(oldInUse.aboveOrEqual(withFullPromotion)){
+                        GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
+                    }
                 }
             }
         }

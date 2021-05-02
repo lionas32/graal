@@ -34,6 +34,7 @@ import com.oracle.svm.core.log.Log;
 import com.oracle.svm.core.option.HostedOptionKey;
 import com.oracle.svm.core.option.RuntimeOptionKey;
 import com.oracle.svm.core.util.TimeUtils;
+import org.graalvm.word.WordFactory;
 
 /** A collection policy decides when to collect incrementally or completely. */
 abstract class CollectionPolicy {
@@ -195,8 +196,7 @@ abstract class CollectionPolicy {
         public boolean collectCompletely() {
             Log trace = Log.noopLog().string("[CollectionPolicy.ByTime.collectIncrementally:");
 
-            boolean result = collectCompletelyBasedOnTime(trace) || collectCompletelyBasedOnUsedBytes(trace)
-                    || collectCompletelyBasedOnSpace(trace);
+            boolean result = collectCompletelyBasedOnTime(trace) || collectCompletelyBasedOnUsedBytes(trace) || collectCompletelyBasedOnSpace(trace);
 
             trace.string("  returns: ").bool(result).string("]").newline();
             return result;
@@ -230,23 +230,26 @@ abstract class CollectionPolicy {
 
 
         /**
-         * If the heap does not have room for the young generation, the old objects already in use,
-         * and a complete copy of the young generation, then request a complete collection.
+         * This should be done better, since we already have the method collectCompletelyBasedOnUsedBytes.
          */
         private static boolean collectCompletelyBasedOnSpace(Log trace) {
-            UnsignedWord heapSize = HeapPolicy.getMaximumHeapSize();
-            UnsignedWord youngSize = HeapPolicy.getMaximumYoungGenerationSize();
+            UnsignedWord withFullPromotion = HeapPolicy.SometimesCollectOnAllocation.withFullPromotion; // This should be set
+            if(withFullPromotion.equal(WordFactory.nullPointer())){
+                return false;
+            }
+
             UnsignedWord oldInUse = getAccounting().getOldGenerationAfterChunkBytes();
-            UnsignedWord withFullPromotion = youngSize.add(oldInUse).add(youngSize);
-            trace.string("  withFullPromotion: ").unsigned(withFullPromotion).newline();
-            return heapSize.belowThan(withFullPromotion);
+            return oldInUse.aboveOrEqual(withFullPromotion);
         }
 
         private static boolean collectCompletelyBasedOnUsedBytes(Log trace) {
-            UnsignedWord heapSize = HeapPolicy.getMaximumHeapSize();
+            UnsignedWord withFullPromotion = HeapPolicy.SometimesCollectOnAllocation.withFullPromotion; // This should be set
+
+            if(withFullPromotion.equal(WordFactory.nullPointer())){
+                return false;
+            }
             UnsignedWord oldInUse = HeapPolicy.getOldUsedBytes();
-            UnsignedWord thresholdSize = heapSize.unsignedDivide(100).multiply(Options.PercentHeapThreshold.getValue());
-            return oldInUse.aboveOrEqual(thresholdSize);
+            return oldInUse.aboveOrEqual(withFullPromotion);
         }
     }
 

@@ -535,7 +535,7 @@ final class Space {
             allocationContext = computeLifetimeBeforePromotion(original);
         }
 
-        if (SubstrateOptions.RolpGC.getValue() && HeapOptions.TraceObjectPromotion.getValue() &&
+        if (HeapOptions.TraceObjectPromotion.getValue() && SubstrateOptions.RolpGC.getValue() &&
                 allocationContext != 0 && SubstrateAllocationProfilingData.exists(allocationContext)) {
             int allocationSite = FixedObjectLifetimeTable.maskAllocationSite(allocationContext);
             int ageBits = FixedObjectLifetimeTable.maskAge(allocationContext);
