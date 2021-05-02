@@ -203,6 +203,11 @@ public final class ObjectHeaderImpl extends ObjectHeader {
         return encodeAsObjectHeader(hub, false, false);
     }
 
+    @Override
+    public Word encodeAsTLABObjectHeaderWithRememberBit(DynamicHub hub){
+        return encodeAsObjectHeader(hub, true, false);
+    };
+
     @Uninterruptible(reason = "Called from uninterruptible code.")
     public static Word encodeAsObjectHeader(DynamicHub hub, boolean rememberedSet, boolean unaligned) {
         /*

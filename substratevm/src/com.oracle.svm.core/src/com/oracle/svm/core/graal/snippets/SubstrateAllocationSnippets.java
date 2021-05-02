@@ -129,7 +129,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         if(!allocateInOld){
             result = allocateInstanceImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
         } else {
-            result = allocateInstanceOldImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
+            result = allocateInstanceOldImpl(encodeAsTLABObjectHeaderWithRememberBit(checkedHub), WordFactory.nullPointer(), WordFactory.unsigned(size), fillContents, emitMemoryBarrier, true, profilingData);
         }
         return piCastToSnippetReplaceeStamp(result);
     }
@@ -160,7 +160,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             result = allocateArrayImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
                     emitMemoryBarrier, maybeUnroll, supportsBulkZeroing, profilingData);
         } else {
-            result = allocateArrayOldImpl(encodeAsTLABObjectHeader(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
+            result = allocateArrayOldImpl(encodeAsTLABObjectHeaderWithRememberBit(checkedHub), WordFactory.nullPointer(), length, arrayBaseOffset, log2ElementSize, fillContents,
                     emitMemoryBarrier, maybeUnroll, supportsBulkZeroing, profilingData);
         }
         return piArrayCastToSnippetReplaceeStamp(result, length);
@@ -378,6 +378,10 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
 
     public static Word encodeAsTLABObjectHeader(DynamicHub hub) {
         return Heap.getHeap().getObjectHeader().encodeAsTLABObjectHeader(hub);
+    }
+
+    public static Word encodeAsTLABObjectHeaderWithRememberBit(DynamicHub hub) {
+        return Heap.getHeap().getObjectHeader().encodeAsTLABObjectHeaderWithRememberBit(hub);
     }
 
     @Override

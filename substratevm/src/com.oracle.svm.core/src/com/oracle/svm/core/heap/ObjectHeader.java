@@ -59,6 +59,8 @@ public abstract class ObjectHeader {
 
     public abstract Word encodeAsTLABObjectHeader(DynamicHub hub);
 
+    public abstract Word encodeAsTLABObjectHeaderWithRememberBit(DynamicHub hub);
+
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public abstract DynamicHub dynamicHubFromObjectHeader(UnsignedWord header);
 

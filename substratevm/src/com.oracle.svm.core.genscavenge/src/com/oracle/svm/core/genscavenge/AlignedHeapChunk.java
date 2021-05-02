@@ -165,6 +165,21 @@ public final class AlignedHeapChunk {
         ObjectHeaderImpl.setRememberedSetBit(obj);
     }
 
+    @AlwaysInline("GC performance")
+    static void setUpFirstObjectTableEntry(AlignedHeader that, Object obj) {
+        assert VMOperation.isGCInProgress() : "Should only be called from the collector.";
+        assert !HeapChunk.getSpace(that).isYoungSpace();
+        /*
+         * The card remembered set table should already be clean, but the first object table needs
+         * to be set up.
+         */
+        Pointer fotStart = getFirstObjectTableStart(that);
+        Pointer memoryStart = getObjectsStart(that);
+        Pointer objStart = Word.objectToUntrackedPointer(obj);
+        Pointer objEnd = LayoutEncoding.getObjectEnd(obj);
+        FirstObjectTable.setTableForObject(fotStart, memoryStart, objStart, objEnd);
+    }
+
     /** Construct the remembered set for all the objects in this chunk. */
     /*
      * This method must not allocate because I might be in the middle of a collection, or in the
@@ -175,6 +190,14 @@ public final class AlignedHeapChunk {
     @RestrictHeapAccess(access = RestrictHeapAccess.Access.UNRESTRICTED, overridesCallers = true, reason = "Whitelisted because other ObjectVisitors are allowed to allocate.")
     static void constructRememberedSet(AlignedHeader that) {
         GCImpl.RememberedSetConstructor constructor = GCImpl.getGCImpl().getRememberedSetConstructor();
+        constructor.initialize(that);
+        HeapChunk.walkObjectsFromInline(that, getObjectsStart(that), constructor);
+        constructor.reset();
+    }
+
+    @RestrictHeapAccess(access = RestrictHeapAccess.Access.UNRESTRICTED, overridesCallers = true, reason = "Whitelisted because other ObjectVisitors are allowed to allocate.")
+    static void constructOnlyFirstTable(AlignedHeader that) {
+        GCImpl.TableConstructor constructor = GCImpl.getGCImpl().getTableContructor();
         constructor.initialize(that);
         HeapChunk.walkObjectsFromInline(that, getObjectsStart(that), constructor);
         constructor.reset();

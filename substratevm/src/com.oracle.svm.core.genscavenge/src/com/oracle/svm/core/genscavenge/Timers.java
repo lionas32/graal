@@ -102,6 +102,7 @@ final class Timers {
     final Timer rootScan = new Timer("rootScan");
     final Timer scanGreyObjects = new Timer("scanGreyObjects");
     final Timer releaseSpaces = new Timer("releaseSpaces");
+    final Timer totalCollection = new Timer("totalCollection");
     final Timer verifyAfter = new Timer("verifyAfter");
     final Timer verifyBefore = new Timer("verifyBefore");
     final Timer walkThreadLocals = new Timer("walkThreadLocals");
@@ -115,6 +116,7 @@ final class Timers {
     void resetAllExceptMutator() {
         Log trace = Log.noopLog();
         trace.string("[Timers.resetAllExceptMutator:");
+        totalCollection.close();
         verifyBefore.reset();
         collection.reset();
         rootScan.reset();

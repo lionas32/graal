@@ -392,16 +392,22 @@ public final class ThreadLocalAllocation {
         UnalignedHeader unalignedChunk = tlab.getUnalignedChunk();
         tlab.setAlignedChunk(WordFactory.nullPointer());
         tlab.setUnalignedChunk(WordFactory.nullPointer());
-
+        long startTime = 0;
+        long endTime = 0;
         while (alignedChunk.isNonNull()) {
             AlignedHeader next = HeapChunk.getNext(alignedChunk);
             HeapChunk.setNext(alignedChunk, WordFactory.nullPointer());
 
             log().string("  aligned chunk ").hex(alignedChunk).newline();
             space.appendAlignedHeapChunk(alignedChunk);
-
+            if(forOld){
+                startTime = System.nanoTime();
+                AlignedHeapChunk.constructOnlyFirstTable(alignedChunk);
+                endTime += System.nanoTime() - startTime;
+            }
             alignedChunk = next;
         }
+        Log.log().string("constructing time: ").number(endTime, 10, false).newline();
 
         while (unalignedChunk.isNonNull()) {
             UnalignedHeader next = HeapChunk.getNext(unalignedChunk);

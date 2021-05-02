@@ -96,6 +96,7 @@ import com.oracle.svm.core.util.VMError;
  */
 public final class GCImpl implements GC {
     private final RememberedSetConstructor rememberedSetConstructor = new RememberedSetConstructor();
+    private final TableConstructor tableConstructor = new TableConstructor();
     private final GreyToBlackObjRefVisitor greyToBlackObjRefVisitor = new GreyToBlackObjRefVisitor();
     private final GreyToBlackObjectVisitor greyToBlackObjectVisitor = new GreyToBlackObjectVisitor(greyToBlackObjRefVisitor);
     private final CollectionPolicy collectOnlyCompletelyPolicy = new CollectionPolicy.OnlyCompletely();
@@ -169,6 +170,7 @@ public final class GCImpl implements GC {
         startCollectionOrExit();
 
         timers.resetAllExceptMutator();
+        timers.totalCollection.open();
         collectionEpoch = collectionEpoch.add(1);
 
         if(SubstrateOptions.SurvivalRate.getValue()){
@@ -253,8 +255,10 @@ public final class GCImpl implements GC {
                 FixedObjectLifetimeTable.clearTable();
             }
         }
-
+        timers.totalCollection.close();
         finishCollection();
+        trace.newline().string("total collection time: ").unsigned(timers.totalCollection.getLastIntervalNanos()).newline();
+
         timers.mutator.open();
 
         trace.string("]").newline();
@@ -328,6 +332,7 @@ public final class GCImpl implements GC {
         HeapImpl heap = HeapImpl.getHeapImpl();
         sizeBefore = ((SubstrateOptions.PrintGC.getValue() || HeapOptions.PrintHeapShape.getValue()) ? heap.getUsedChunkBytes() : WordFactory.zero());
         if (SubstrateOptions.VerboseGC.getValue() && getCollectionEpoch().equal(1)) {
+
             verboseGCLog.string("[Heap policy parameters: ").newline();
             verboseGCLog.string("  YoungGenerationSize: ").unsigned(HeapPolicy.getMaximumYoungGenerationSize()).newline();
             verboseGCLog.string("      MaximumHeapSize: ").unsigned(HeapPolicy.getMaximumHeapSize()).newline();
@@ -1046,6 +1051,10 @@ public final class GCImpl implements GC {
         return rememberedSetConstructor;
     }
 
+    TableConstructor getTableContructor() {
+        return tableConstructor;
+    }
+
     static class RememberedSetConstructor implements ObjectVisitor {
         private AlignedHeapChunk.AlignedHeader chunk;
 
@@ -1073,6 +1082,35 @@ public final class GCImpl implements GC {
             chunk = WordFactory.nullPointer();
         }
     }
+
+    static class TableConstructor implements ObjectVisitor {
+        private AlignedHeapChunk.AlignedHeader chunk;
+
+        @Platforms(Platform.HOSTED_ONLY.class)
+        TableConstructor() {
+        }
+
+        public void initialize(AlignedHeapChunk.AlignedHeader aChunk) {
+            this.chunk = aChunk;
+        }
+
+        @Override
+        public boolean visitObject(Object o) {
+            return visitObjectInline(o);
+        }
+
+        @Override
+        @AlwaysInline("GC performance")
+        public boolean visitObjectInline(Object o) {
+            AlignedHeapChunk.setUpFirstObjectTableEntry(chunk, o);
+            return true;
+        }
+
+        public void reset() {
+            chunk = WordFactory.nullPointer();
+        }
+    }
+
 
     /** Signals that a collection is already in progress. */
     @SuppressWarnings("serial")
