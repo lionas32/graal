@@ -49,6 +49,8 @@ import com.oracle.svm.core.option.HostedOptionKey;
  */
 final class GreyToBlackObjRefVisitor implements ObjectReferenceVisitor {
     private final Counters counters;
+//    public static int nonHeapCounter = 0;
+//    public static int referenceTimeCounter = 0;
 
     @Platforms(Platform.HOSTED_ONLY.class)
     GreyToBlackObjRefVisitor() {
@@ -81,6 +83,7 @@ final class GreyToBlackObjRefVisitor implements ObjectReferenceVisitor {
     public boolean visitObjectReferenceInline(Pointer objRef, int innerOffset, boolean compressed, Object holderObject) {
         assert innerOffset >= 0;
         assert !objRef.isNull();
+//        long refStartTime = System.nanoTime();
         counters.noteObjRef();
 
         Pointer offsetP = ReferenceAccess.singleton().readObjectAsUntrackedPointer(objRef, compressed);
@@ -92,10 +95,13 @@ final class GreyToBlackObjRefVisitor implements ObjectReferenceVisitor {
             return true;
         }
 
+//
+//        long startTime = System.nanoTime();
         if (HeapImpl.getHeapImpl().isInImageHeap(p)) {
             counters.noteNonHeapReferent();
             return true;
         }
+//        nonHeapCounter += System.nanoTime() - startTime;
 
         // This is the most expensive check as it accesses the heap fairly randomly, which results
         // in a lot of cache misses.
@@ -129,6 +135,7 @@ final class GreyToBlackObjRefVisitor implements ObjectReferenceVisitor {
             // might have to dirty the card.
             HeapImpl.getHeapImpl().dirtyCardIfNecessary(holderObject, copy);
         }
+//        referenceTimeCounter += System.nanoTime() - refStartTime;
         return true;
     }
 

@@ -258,7 +258,10 @@ public final class GCImpl implements GC {
         timers.totalCollection.close();
         finishCollection();
         trace.newline().string("total collection time: ").unsigned(timers.totalCollection.getLastIntervalNanos()).newline();
-
+//        trace.newline().string("nonHeapObject time tracking: ").unsigned(GreyToBlackObjRefVisitor.nonHeapCounter).newline();
+//        trace.newline().string("reference scan time: ").unsigned(GreyToBlackObjRefVisitor.referenceTimeCounter).newline();
+//        GreyToBlackObjRefVisitor.nonHeapCounter = 0;
+//        GreyToBlackObjRefVisitor.referenceTimeCounter = 0;
         timers.mutator.open();
 
         trace.string("]").newline();

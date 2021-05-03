@@ -30,14 +30,12 @@ public class FixedObjectLifetimeTable {
     public static final void cacheTable(){
         for(int i = 0; i < STATIC_SIZE; i++){
             int[] allocations = allocationSiteCounters[i];
-            if(allocations != null){
-                boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
-                if(toCache) {
-                    if(youngOrOld[i] == 0){
-                        youngOrOld[i] = 1;
-                    } else {
-                        // skip for now, maybe implement something here later
-                    }
+            boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
+            if(toCache) {
+                if(youngOrOld[i] == 0){
+                    youngOrOld[i] = 1;
+                } else {
+                    // skip for now, maybe implement something here later
                 }
             }
         }

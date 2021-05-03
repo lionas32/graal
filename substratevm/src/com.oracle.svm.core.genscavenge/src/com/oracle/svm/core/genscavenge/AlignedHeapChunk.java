@@ -173,6 +173,7 @@ public final class AlignedHeapChunk {
          * The card remembered set table should already be clean, but the first object table needs
          * to be set up.
          */
+        AlignedHeapChunk.dirtyCardForObject(obj, false);
         Pointer fotStart = getFirstObjectTableStart(that);
         Pointer memoryStart = getObjectsStart(that);
         Pointer objStart = Word.objectToUntrackedPointer(obj);
