@@ -9,6 +9,7 @@ public class FixedObjectLifetimeTable {
     public static final int allocationSiteMask = 0x3fffffff;
     public static final int MAX_AGE = 0b11;
     public static final int STATIC_SIZE = 65536;
+    public static final int stopProfilingEpoch = 16;
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] youngOrOld = new int[STATIC_SIZE];
@@ -28,7 +29,7 @@ public class FixedObjectLifetimeTable {
      * Cache the distribution (1 for old, 0 for young)
      */
     public static final void cacheTable(){
-        for(int i = 0; i < STATIC_SIZE; i++){
+        for(int i = 1; i < STATIC_SIZE; i++){
             int[] allocations = allocationSiteCounters[i];
             boolean toCache = allocations[0] < allocations[1] + allocations[2] + allocations[3];
             if(toCache) {

@@ -49,8 +49,8 @@ import com.oracle.svm.core.option.HostedOptionKey;
  */
 final class GreyToBlackObjRefVisitor implements ObjectReferenceVisitor {
     private final Counters counters;
-//    public static int nonHeapCounter = 0;
-//    public static int referenceTimeCounter = 0;
+    public static int nonHeapCounter = 0;
+    public static int referenceTimeCounter = 0;
 
     @Platforms(Platform.HOSTED_ONLY.class)
     GreyToBlackObjRefVisitor() {
@@ -95,7 +95,6 @@ final class GreyToBlackObjRefVisitor implements ObjectReferenceVisitor {
             return true;
         }
 
-//
 //        long startTime = System.nanoTime();
         if (HeapImpl.getHeapImpl().isInImageHeap(p)) {
             counters.noteNonHeapReferent();

@@ -24,6 +24,7 @@
  */
 package com.oracle.svm.core.genscavenge;
 
+import com.oracle.svm.core.graal.snippets.FixedObjectLifetimeTable;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
 import org.graalvm.word.Pointer;
@@ -158,9 +159,9 @@ final class HeapChunkProvider {
     /** Release an AlignedHeapChunk, either to the free list or back to the operating system. */
     void consumeAlignedChunk(AlignedHeader chunk) {
         log().string("[HeapChunkProvider.consumeAlignedChunk  chunk: ").hex(chunk).newline();
-        if(SubstrateOptions.RolpGC.getValue()){
+//        if(SubstrateOptions.RolpGC.getValue() && FixedObjectLifetimeTable.toProfile){
 //            AlignedHeapChunk.walkObjectsForLifetime(chunk, GCImpl.getGCImpl().decrementAgeVisitor); // For more accurate object lifetime information
-        }
+//        }
         if (keepAlignedChunk()) {
             cleanAlignedChunk(chunk);
             pushUnusedAlignedChunk(chunk);

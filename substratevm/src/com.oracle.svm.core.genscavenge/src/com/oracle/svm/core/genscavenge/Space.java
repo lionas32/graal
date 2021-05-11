@@ -510,7 +510,7 @@ final class Space {
         int hashCodeOffset = IdentityHashCodeSupport.getHashCodeOffset(obj);
         int allocationContext = ObjectAccess.readInt(obj, hashCodeOffset);
         if(allocationContext == 0 || !SubstrateAllocationProfilingData.exists(allocationContext)){
-            return 0; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode) we skip over the object. Also if it is skippable.
+            return 0; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode) we skip over the object.
         }
 
         int prevAgeBits = FixedObjectLifetimeTable.maskAge(allocationContext);

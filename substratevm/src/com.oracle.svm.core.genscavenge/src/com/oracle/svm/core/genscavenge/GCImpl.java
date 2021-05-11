@@ -247,7 +247,7 @@ public final class GCImpl implements GC {
 
         if(SubstrateOptions.RolpGC.getValue()){
             FixedObjectLifetimeTable.epoch = collectionEpoch;
-            if(FixedObjectLifetimeTable.toProfile && collectionEpoch.unsignedRemainder(8).equal(0) && collectionEpoch.notEqual(0)){
+            if(FixedObjectLifetimeTable.toProfile && collectionEpoch.unsignedRemainder(FixedObjectLifetimeTable.stopProfilingEpoch).equal(0) && collectionEpoch.notEqual(0)){
                 trace.string("  clearing and caching table on epoch: ")
                         .unsigned(collectionEpoch).string(" time: ")
                         .unsigned(System.nanoTime()).string(" nanoSeconds").newline();

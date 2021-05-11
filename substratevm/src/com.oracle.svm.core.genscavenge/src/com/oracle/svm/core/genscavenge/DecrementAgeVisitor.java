@@ -27,7 +27,6 @@ package com.oracle.svm.core.genscavenge;
 import com.oracle.svm.core.annotate.AlwaysInline;
 import com.oracle.svm.core.annotate.NeverInline;
 import com.oracle.svm.core.graal.snippets.FixedObjectLifetimeTable;
-import com.oracle.svm.core.graal.snippets.StaticObjectLifetimeTable;
 import com.oracle.svm.core.graal.snippets.SubstrateAllocationSnippets.SubstrateAllocationProfilingData;
 import com.oracle.svm.core.heap.ObjectVisitor;
 import com.oracle.svm.core.snippets.KnownIntrinsics;
@@ -54,7 +53,7 @@ final class DecrementAgeVisitor implements ObjectVisitor {
         int fullHeader = ObjectAccess.readInt(o, KnownIntrinsics.readHub(o).getHashCodeOffset());
         int allocationSite = FixedObjectLifetimeTable.maskAllocationSite(fullHeader);
         if (allocationSite == 0 || !SubstrateAllocationProfilingData.exists(allocationSite)){
-            return false; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode) we don't use the object
+            return false; // If the allocation context is not computed, or it doesn't exist (probably used as hashcode)
         }
         int age = FixedObjectLifetimeTable.maskAge(fullHeader);
         FixedObjectLifetimeTable.decrementAllocation(allocationSite, age);
