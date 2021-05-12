@@ -169,6 +169,9 @@ public class SubstrateOptions {
     @Option(help = "Run the Runtime Object Lifetime Profiler together with Serial GC", type = OptionType.Expert)//
     public static final HostedOptionKey<Boolean> RolpGC = new HostedOptionKey<>(false);
 
+    @Option(help = "The GC epoch in which we stop profiling with ROLP.", type = OptionType.Expert)//
+    public static final HostedOptionKey<Integer> FinalEpoch = new HostedOptionKey<>(16);
+
     @Option(help = "Print the survival rate of all objects after a GC", type = OptionType.Expert)//
     public static final HostedOptionKey<Boolean> SurvivalRate = new HostedOptionKey<>(false);
 

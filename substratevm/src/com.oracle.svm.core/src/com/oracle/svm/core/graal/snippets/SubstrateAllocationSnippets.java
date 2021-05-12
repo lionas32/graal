@@ -122,7 +122,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
         if(SubstrateOptions.RolpGC.getValue()){
                 SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                if(allocationSite != 0 && FixedObjectLifetimeTable.epoch.aboveThan(FixedObjectLifetimeTable.stopProfilingEpoch)){
+                if(allocationSite != 0 && FixedObjectLifetimeTable.epoch.aboveThan(SubstrateOptions.FinalEpoch.getValue())){
                     allocateInOld = FixedObjectLifetimeTable.getCachedGeneration(allocationSite);
                 }
         }
@@ -151,7 +151,7 @@ public abstract class SubstrateAllocationSnippets extends AllocationSnippets {
             if(profilingData != null){
                 SubstrateAllocationProfilingData svmProfilingData = (SubstrateAllocationProfilingData) profilingData;
                 int allocationSite = svmProfilingData.allocationSiteCounter.getPersonalAllocationSite();
-                if(allocationSite != 0 && FixedObjectLifetimeTable.epoch.aboveThan(FixedObjectLifetimeTable.stopProfilingEpoch)){
+                if(allocationSite != 0 && FixedObjectLifetimeTable.epoch.aboveThan(SubstrateOptions.FinalEpoch.getValue())){
                     allocateInOld = FixedObjectLifetimeTable.getCachedGeneration(allocationSite);
                 }
             }
