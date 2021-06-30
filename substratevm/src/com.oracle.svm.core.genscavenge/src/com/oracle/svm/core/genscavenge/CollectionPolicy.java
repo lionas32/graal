@@ -139,7 +139,7 @@ abstract class CollectionPolicy {
         public boolean collectCompletely() {
             Log trace = Log.noopLog().string("[CollectionPolicy.ByTime.collectIncrementally:");
 
-            boolean result = collectCompletelyBasedOnTime(trace) || collectCompletelyBasedOnSpace(trace);
+            boolean result = collectCompletelyBasedOnSpace(trace);
 
             trace.string("  returns: ").bool(result).string("]").newline();
             return result;
@@ -189,14 +189,15 @@ abstract class CollectionPolicy {
 
         @Override
         public boolean collectIncrementally() {
-            return HeapPolicy.getYoungUsedBytes().aboveOrEqual(HeapPolicy.getMaximumYoungGenerationSize());
+            return true;
+//            return HeapPolicy.getYoungUsedBytes().aboveOrEqual(HeapPolicy.getMaximumYoungGenerationSize());
         }
 
         @Override
         public boolean collectCompletely() {
             Log trace = Log.noopLog().string("[CollectionPolicy.ByTime.collectIncrementally:");
 
-            boolean result = collectCompletelyBasedOnTime(trace) || collectCompletelyBasedOnUsedBytes(trace) || collectCompletelyBasedOnSpace(trace);
+            boolean result = collectCompletelyBasedOnUsedBytes(trace);
 
             trace.string("  returns: ").bool(result).string("]").newline();
             return result;

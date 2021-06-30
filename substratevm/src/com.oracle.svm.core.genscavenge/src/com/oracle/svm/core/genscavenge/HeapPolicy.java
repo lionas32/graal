@@ -24,6 +24,7 @@
  */
 package com.oracle.svm.core.genscavenge;
 
+import com.oracle.svm.core.graal.snippets.FixedObjectLifetimeTable;
 import org.graalvm.compiler.api.replacements.Fold;
 import org.graalvm.compiler.word.Word;
 import org.graalvm.nativeimage.Platform;
@@ -372,7 +373,7 @@ public final class HeapPolicy {
         public void maybeCauseCollection() {
             if (youngUsedBytes.get().aboveOrEqual(getMaximumYoungGenerationSize())) {
                 GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocationSometimes);
-            } else if (SubstrateOptions.RolpGC.getValue() && PhysicalMemory.isInitialized()){
+            } else if (SubstrateOptions.RolpGC.getValue() && !FixedObjectLifetimeTable.toProfile && PhysicalMemory.isInitialized()){
                 if (withFullPromotion.equal(WordFactory.nullPointer())) {
                     if(CollectionPolicy.Options.PercentHeapThreshold.getValue().equals(100)){
                         UnsignedWord thresholdSize = HeapPolicy.getMaximumHeapSize();

@@ -8,7 +8,7 @@ import java.util.Arrays;
 public class FixedObjectLifetimeTable {
     public static final int allocationSiteMask = 0x3fffffff;
     public static final int MAX_AGE = 0b11;
-    public static final int STATIC_SIZE = 65536;
+    public static final int STATIC_SIZE = 6553;
 
     public static int[][] allocationSiteCounters = new int[STATIC_SIZE][MAX_AGE + 1];
     public static int[] youngOrOld = new int[STATIC_SIZE];

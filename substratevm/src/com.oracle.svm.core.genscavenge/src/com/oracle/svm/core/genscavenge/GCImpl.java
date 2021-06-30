@@ -172,7 +172,6 @@ public final class GCImpl implements GC {
         timers.resetAllExceptMutator();
         timers.totalCollection.open();
         collectionEpoch = collectionEpoch.add(1);
-
         if(SubstrateOptions.SurvivalRate.getValue()){
             HeapImpl.getHeapImpl().walkCollectedHeapObjects(countObjectsBeforeGCVisitor);
         }
